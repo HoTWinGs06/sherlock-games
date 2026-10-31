@@ -58,6 +58,30 @@
         </div>
     </section>
 
+    <section class="admin-leaderboard" id="logsPanel" hidden>
+        <h1>Player Activity Logs</h1>
+        <p class="admin-note">Sorted by points earned, highest first.</p>
+
+        <div id="status3" class="status">Loading logs&hellip;</div>
+
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Time Completed</th>
+                    <th>Points</th>
+                </tr>
+            </thead>
+            <tbody id="logBody"></tbody>
+        </table>
+
+        <p class="empty" id="logEmpty">No activity logs yet.</p>
+
+        <div class="action-row">
+            <a href="case-cleared.html" class="btn btn-outline">Back to the Study</a>
+        </div>
+    </section>
+
     <footer class="case-footer">
         <p class="case-note">Sherlock Holmes Consulting — 221B Baker Street</p>
     </footer>
@@ -131,15 +155,16 @@
                     return;
                 }
                 var rows = data.logs || [];
+                rows.sort(function(a, b) {
+                    return (b.points_awarded || 0) - (a.points_awarded || 0);
+                });
                 logBody.innerHTML = '';
                 logEmpty.hidden = rows.length > 0;
                 rows.forEach(function (row) {
                     var tr = document.createElement('tr');
                     tr.innerHTML =
-                        '<td>' + escapeHtml(formatTime(row.created_at)) + '</td>' +
                         '<td>' + escapeHtml(row.username || 'Unknown') + '</td>' +
-                        '<td>' + escapeHtml(row.game_id || '') + '</td>' +
-                        '<td>' + escapeHtml(row.action || '') + '</td>' +
+                        '<td>' + escapeHtml(formatTime(row.created_at)) + '</td>' +
                         '<td>' + (row.points_awarded || 0) + '</td>';
                     logBody.appendChild(tr);
                 });
