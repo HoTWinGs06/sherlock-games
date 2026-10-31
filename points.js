@@ -22,6 +22,17 @@
     var cachedTotal = null;
     var cachedSolves = [];
 
+    /* ---- saved player name (from the study door username field) ---- */
+    var savedUsername = '';
+    try { savedUsername = localStorage.getItem('sh-username') || ''; } catch (e) { savedUsername = ''; }
+
+    function getSavedUsername() { return savedUsername; }
+
+    function saveUsername(name) {
+        savedUsername = name || '';
+        try { localStorage.setItem('sh-username', savedUsername); } catch (e) { /* ignore */ }
+    }
+
     function boot() {
         if (!cfg.url || !cfg.anonKey || !host.supabase) return;
         try {
@@ -52,7 +63,11 @@
         if (!u) return { ok: false, offline: true };
         try {
             var r = await client.functions.invoke('verify-answer', {
-                body: { game_id: String(gameId), answer: String(answer == null ? '' : answer) }
+                body: {
+                    game_id: String(gameId),
+                    answer: String(answer == null ? '' : answer),
+                    username: getSavedUsername()
+                }
             });
             var d = r && r.data ? r.data : null;
             if (d && d.ok && d.correct && typeof d.total === 'number') {
@@ -89,6 +104,8 @@
     host.SherlockPoints = {
         submit: submit,
         refresh: refresh,
+        getSavedUsername: getSavedUsername,
+        saveUsername: saveUsername,
         get enabled() { return enabled; },
         get cachedTotal() { return cachedTotal; },
         get cachedSolves() { return cachedSolves.slice(); }

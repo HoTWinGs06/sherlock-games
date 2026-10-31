@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sherlock Games — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="login-page">
+        <div class="parchment">
+            <h1>🕵️ Sherlock Games</h1>
+            <p class="subtitle">Choose your login type</p>
+
+            <!-- Player Login -->
+            <section class="login-card" id="player-section">
+                <h2>Player Login</h2>
+                <p class="card-sub">Sign up with your username to play puzzles.</p>
+
+                <form id="playerLoginForm">
+                    <div class="form-field">
+                        <label for="playerName">Username</label>
+                        <input type="text" id="playerName" placeholder="e.g. john.doe" maxlength="40" autocomplete="name">
+                    </div>
+                    <div class="form-field">
+                        <label for="playerPassword">Password</label>
+                        <input type="password" id="playerPassword" placeholder="Enter password" autocomplete="current-password">
+                    </div>
+                    <div class="action-row">
+                        <button type="button" class="btn btn-outline" id="playerSignUpBtn">Create Account</button>
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </div>
+                </form>
+            </section>
+
+            <div class="divider">OR</div>
+
+            <!-- Admin Login -->
+            <section class="login-card" id="admin-section" style="display:none;">
+                <h2>Admin Login</h2>
+                <p class="card-sub">Access player leaderboard and activity logs.</p>
+
+                <form id="adminLoginForm">
+                    <div class="form-field">
+                        <label for="adminName">Admin Name</label>
+                        <input type="text" id="adminName" placeholder="e.g. nishant" autocomplete="off">
+                    </div>
+                    <div class="form-field">
+                        <label for="adminPassword">Password</label>
+                        <input type="password" id="adminPassword" placeholder="Enter password" autocomplete="current-password">
+                    </div>
+                    <div class="action-row">
+                        <button type="submit" class="btn btn-primary">Sign In</button>
+                    </div>
+                </form>
+            </section>
+
+            <div class="action-row">
+                <a href="index.html" class="btn btn-outline">← Back to the Study</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="case-footer">
+        <p class="case-note">Sherlock Holmes Consulting — 221B Baker Street</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var SUPABASE_URL = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : '';
+            var SUPABASE_ANON = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.anonKey : '';
+            var supabase = SUPABASE_URL && SUPABASE_ANON
+                ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+                : null;
+
+            var playerName = document.getElementById('playerName');
+            var playerPassword = document.getElementById('playerPassword');
+            var playerSignUpBtn = document.getElementById('playerSignUpBtn');
+            var playerLoginForm = document.getElementById('playerLoginForm');
+            var adminName = document.getElementById('adminName');
+            var adminPassword = document.getElementById('adminPassword');
+            var adminLoginForm = document.getElementById('adminLoginForm');
+            var playerSection = document.getElementById('player-section');
+            var adminSection = document.getElementById('admin-section');
+
+            // Toggle between player and admin sections
+            document.querySelectorAll('.login-card').forEach(function (card) {
+                card.addEventListener('click', function (e) {
+                    if (e.target.tagName === 'H2') {
+                        var isPlayer = card.id === 'player-section';
+                        adminSection.style.display = isPlayer ? 'none' : 'block';
+                        playerSection.style.display = isPlayer ? 'block' : 'none';
+                    }
+                });
+            });
+
+            // Player sign up
+            playerSignUpBtn.addEventListener('click', async function () {
+                var name = playerName.value.trim();
+                if (!name) {
+                    alert('Please enter a username.');
+                    return;
+                }
+                if (!/^[a-zA-Z0-9._-]{3,40}$/.test(name)) {
+                    alert('Username must be 3-40 characters (letters, numbers, dots, hyphens, underscores).');
+                    return;
+                }
+                var email = name.replace(/\s+/g, '.') + '@player.local';
+                try {
+                    var { data, error } = await supabase.auth.signUp({
+                        email: email,
+                        password: playerPassword.value,
+                        options: {
+                            data: { display_name: name }
+                        }
+                    });
+                    if (error) {
+                        throw error;
+                    }
+                    alert('Account created! You can now sign in.');
+                    playerPassword.value = '';
+                } catch (err) {
+                    alert('Sign up failed: ' + (err.message || 'unknown error'));
+                }
+            });
+
+            // Player login
+            playerLoginForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var name = playerName.value.trim();
+                var password = playerPassword.value;
+                if (!name || !password) {
+                    alert('Please enter both username and password.');
+                    return;
+                }
+                try {
+                    var { data, error } = await supabase.auth.signInWithPassword({
+                        email: name.replace(/\s+/g, '.') + '@player.local',
+                        password: password,
+                    });
+                    if (error || !data.session) {
+                        throw error || new Error('Login failed');
+                    }
+                    alert('Welcome, ' + name + '! You can now play puzzles.');
+                    playerSection.style.display = 'none';
+                    window.location.href = 'index.html';
+                } catch (err) {
+                    alert('Login failed: ' + (err.message || 'unknown error'));
+                }
+            });
+
+            // Admin login
+            adminLoginForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var adminNameVal = adminName.value.trim();
+                var password = adminPassword.value;
+                if (!adminNameVal || !password) {
+                    alert('Please enter both admin name and password.');
+                    return;
+                }
+                adminEmail = 'nishantyadawad007@gmail.com';
+                try {
+                    var { data, error } = await supabase.auth.signInWithPassword({
+                        email: adminEmail,
+                        password: password,
+                    });
+                    if (error || !data.session) {
+                        throw error || new Error('Sign in failed');
+                    }
+                    alert('Admin logged in. Redirecting to leaderboard...');
+                    window.location.href = 'admin.html';
+                } catch (err) {
+                    alert('Sign in failed: ' + (err.message || 'unknown error'));
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

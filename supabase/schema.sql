@@ -1,10 +1,12 @@
 -- ============================================================================
 -- sherlock-games — Supabase schema (run in Supabase SQL Editor, once)
 --
--- Three tables:
---   profiles        — one row per anonymous player: total points + tier
---   game_solves     — one solve per game per player (unique) → no double awards
---   puzzle_answers  — the sealed side: hashes / alias lists / reveal text.
+-- Five tables:
+--   profiles          — one row per anonymous player: total points + tier
+--   activity_logs     — every player action: answer submitted, solved, points awarded
+--   game_solves       — one solve per game per player (unique) → no double awards
+--   puzzle_answers    — the sealed side: hashes / alias lists / reveal text.
+--   admins            — the players who may read the leaderboard.
 --                     RLS with NO policy → unreachable from the browser;
 --                     only the verify-answer edge function (service role)
 --                     reads it.
@@ -16,6 +18,7 @@
 -- ---------------------------------------------------------------- profiles --
 create table public.profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
+  username     text,
   display_name text,
   total_points integer not null default 0,
   tier         text not null default 'Apprentice',
@@ -27,6 +30,47 @@ alter table public.profiles enable row level security;
 -- players read only their own row; writes happen server-side only
 create policy "players read own profile"
   on public.profiles for select
+  using (auth.uid() = id);
+
+-- activity_logs: every player action — answer submitted, puzzle solved, points awarded.
+-- Tracks username, game, points, and the exact moment it happened.
+create table public.activity_logs (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id),
+  username     text not null,
+  game_id      text not null,
+  action       text not null,
+  points_awarded integer default 0,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.activity_logs enable row level security;
+
+-- admins only can read activity logs
+create policy "admins read all activity logs"
+  on public.activity_logs for select
+  using (
+    exists (
+      select 1 from admins
+      where admins.id = auth.uid()
+    )
+  );
+
+-- ------------------------------------------------------- admins --
+-- The admins table stores the secret key used to authenticate admin
+-- requests to the leaderboard and logs endpoints. The key is stored
+-- in the database (not in code) and is verified server-side only.
+create table public.admins (
+  id           uuid primary key references auth.users(id) on delete cascade,
+  secret_key   text not null,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.admins enable row level security;
+
+-- Only the admin's own row can be read; writes happen server-side only
+create policy "admins read own row"
+  on public.admins for select
   using (auth.uid() = id);
 
 -- auto-create a profile row the moment an anonymous player signs up

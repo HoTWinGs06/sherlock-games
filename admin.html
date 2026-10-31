@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin — Leaderboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="admin-login" id="loginPanel">
+        <h1>The Ledger</h1>
+        <p class="admin-sub">Access admin controls with your secret login.</p>
+
+        <div id="status" class="status"></div>
+
+        <form id="adminLoginForm" class="username-section" style="padding:18px 22px;">
+            <div class="form-field">
+                <label for="adminName">Admin name</label>
+                <input type="text" id="adminName" placeholder="Admin name" autocomplete="off">
+            </div>
+            <div class="form-field">
+                <label for="adminPassword">Password</label>
+                <input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password">
+            </div>
+            <div class="action-row">
+                <button type="submit" class="btn btn-primary">Open leaderboard</button>
+            </div>
+        </form>
+    </main>
+
+    <section class="admin-leaderboard" id="leaderboard" hidden>
+        <h1>Registered players</h1>
+        <p class="admin-note">Order reflects total collective points, highest first.</p>
+
+        <div id="status2" class="status">Loading leaderboard&hellip;</div>
+
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Player</th>
+                    <th>Points</th>
+                    <th>Tier</th>
+                </tr>
+            </thead>
+            <tbody id="lbBody"></tbody>
+        </table>
+
+        <p class="empty" id="lbEmpty">No registered players yet.</p>
+
+        <div class="action-row">
+            <a href="case-cleared.html" class="btn btn-outline">Back to the Study</a>
+        </div>
+    </section>
+
+    <footer class="case-footer">
+        <p class="case-note">Sherlock Holmes Consulting — 221B Baker Street</p>
+    </footer>
+
+        <script>
+        (function () {
+            'use strict';
+
+            var SUPABASE_URL = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : '';
+            var SUPABASE_ANON = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.anonKey : '';
+            var supabase = SUPABASE_URL && SUPABASE_ANON
+                ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+                : null;
+
+            var adminEmailEl = document.getElementById('adminEmail');
+            var adminPasswordEl = document.getElementById('adminPassword');
+            var loginPanel = document.getElementById('loginPanel');
+            var leaderboardEl = document.getElementById('leaderboard');
+            var logPanel = document.getElementById('logsPanel');
+            var lbBody = document.getElementById('lbBody');
+            var lbEmpty = document.getElementById('lbEmpty');
+            var logBody = document.getElementById('logBody');
+            var logEmpty = document.getElementById('logEmpty');
+            var status2 = document.getElementById('status2');
+            var status3 = document.getElementById('status3');
+            var loginForm = document.getElementById('adminLoginForm');
+
+            var ADMIN_SECRET_KEY = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6';
+
+            function setStatus(el, text, className) {
+                if (el) el.textContent = text;
+                if (className) {
+                    var s = document.getElementById('status');
+                    if (s) s.className = 'status feedback ' + className;
+                }
+            }
+
+            function formatTime(ts) {
+                if (!ts) return '—';
+                try {
+                    return new Date(ts).toLocaleString();
+                } catch (e) {
+                    return ts;
+                }
+            }
+
+            function renderLeaderboard(data) {
+                if (!data.ok) {
+                    setStatus(status2, 'Failed to load leaderboard: ' + (data.error || 'unknown error'), 'error');
+                    return;
+                }
+                var rows = data.leaderboard || [];
+                lbBody.innerHTML = '';
+                lbEmpty.hidden = rows.length > 0;
+                rows.forEach(function (row, i) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + (i + 1) + '</td>' +
+                        '<td>' + escapeHtml(row.username || 'Unknown') + '</td>' +
+                        '<td>' + (row.total_points || 0) + '</td>' +
+                        '<td>' + escapeHtml(row.tier || 'Apprentice') + '</td>';
+                    lbBody.appendChild(tr);
+                });
+                leaderboardEl.hidden = false;
+                logPanel.hidden = true;
+            }
+
+            function renderLogs(data) {
+                if (!data.ok) {
+                    setStatus(status3, 'Failed to load logs: ' + (data.error || 'unknown error'), 'error');
+                    return;
+                }
+                var rows = data.logs || [];
+                logBody.innerHTML = '';
+                logEmpty.hidden = rows.length > 0;
+                rows.forEach(function (row) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + escapeHtml(formatTime(row.created_at)) + '</td>' +
+                        '<td>' + escapeHtml(row.username || 'Unknown') + '</td>' +
+                        '<td>' + escapeHtml(row.game_id || '') + '</td>' +
+                        '<td>' + escapeHtml(row.action || '') + '</td>' +
+                        '<td>' + (row.points_awarded || 0) + '</td>';
+                    logBody.appendChild(tr);
+                });
+                leaderboardEl.hidden = true;
+                logPanel.hidden = false;
+            }
+
+            function escapeHtml(str) {
+                var div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            async function fetchLeaderboard() {
+                var authHeader = 'Bearer ' + (await supabase.auth.getSession())
+                    .data.session.access_token;
+                var res = await fetch(SUPABASE_URL + '/functions/v1/verify-answer/leaderboard', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': authHeader,
+                        'X-Secret-Key': ADMIN_SECRET_KEY,
+                    },
+                });
+                var data = await res.json();
+                renderLeaderboard(data);
+            }
+
+            async function fetchLogs() {
+                var authHeader = 'Bearer ' + (await supabase.auth.getSession())
+                    .data.session.access_token;
+                var res = await fetch(SUPABASE_URL + '/functions/v1/verify-answer/logs', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': authHeader,
+                        'X-Secret-Key': ADMIN_SECRET_KEY,
+                    },
+                });
+                var data = await res.json();
+                renderLogs(data);
+            }
+
+            loginForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                setStatus(status2, 'Checking login&hellip;', 'info');
+                loginForm.querySelector('.btn').disabled = true;
+
+                try {
+                    var { data, error } = await supabase.auth.signInWithPassword({
+                        email: adminEmailEl.value.trim(),
+                        password: adminPasswordEl.value,
+                    });
+                    if (error || !data.session) {
+                        throw error || new Error('Login failed');
+                    }
+                    setStatus(status2, 'Welcome, ' + adminEmailEl.value.trim() + '.', 'success');
+                    adminEmailEl.disabled = true;
+                    adminPasswordEl.disabled = true;
+                    loginForm.style.display = 'none';
+                    await fetchLeaderboard();
+                } catch (err) {
+                    setStatus(status2, 'Login failed: ' + (err.message || 'unknown error'), 'error');
+                } finally {
+                    loginForm.querySelector('.btn').disabled = false;
+                }
+            });
+
+            document.getElementById('backBtn').addEventListener('click', function () {
+                location.href = 'index.html';
+            });
+        })();
+    </script>

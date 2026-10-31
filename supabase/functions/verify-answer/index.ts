@@ -1,20 +1,6 @@
 // ============================================================================
 // supabase/functions/verify-answer/index.ts — the one scoring gate.
-//
-// Deploy: Supabase Dashboard → Edge Functions → Create → paste this file.
-// (Or `supabase functions deploy verify-answer` with the CLI.)
-//
-// POST { game_id, answer } with the player's Authorization header.
-// · invokes with anon+user JWT (supabase-js functions.invoke does this)
-// · verifies the JWT (getUser) and rejects everyone without a session
-// · kind='exact'  → fingerprint(answer) must equal the stored hash
-// · kind='geo'    → the same norm/Levenshtein/substring rules as geo.js
-// · award via public.award_solve (atomic, one award per game per player)
-// · reveal text returns ONLY after a correct answer
-//
-// SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are injected by the runtime.
 // ============================================================================
-
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const CORS = {
@@ -23,7 +9,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-function json(body: unknown, status = 200) {
+function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -32,16 +18,82 @@ function json(body: unknown, status = 200) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  /* ---- service role client (bypasses RLS) ---- */
+  const sr = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
+  /* ---- leaderboard (admin) ---- */
+  if (req.method === 'GET') {
+    const url = new URL(req.url);
+    if (url.pathname === '/leaderboard') {
+      const authHeader = req.headers.get('Authorization') ?? '';
+      const secretKey = req.headers.get('X-Secret-Key') ?? '';
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        { global: { headers: { Authorization: authHeader } } },
+      );
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData?.user) {
+        return json({ ok: false, error: 'unauthorized' }, 401);
+      }
+      const userId = userData.user.id;
+      const { data: adminRow, error: adminErr } = await sr
+        .from('admins').select('id, secret_key').eq('id', userId).maybeSingle();
+      if (adminErr || !adminRow || adminRow.secret_key !== secretKey) {
+        return json({ ok: false, error: 'not an admin' }, 403);
+      }
+      const { data: profiles, error: profilesErr } = await sr
+        .from('profiles')
+        .select('id, username, total_points, tier')
+        .order('total_points', { ascending: false })
+        .neq('username', null);
+      if (profilesErr) {
+        return json({ ok: false, error: 'query failed' }, 500);
+      }
+      return json({
+        ok: true,
+        leaderboard: (profiles as Array<{ username: string; total_points: number; tier: string }>) ?? [],
+      });
+    }
+  }
+
+  /* ---- player logs (admin) ---- */
+  if (req.method === 'GET' && new URL(req.url).pathname === '/logs') {
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user) {
+      return json({ ok: false, error: 'unauthorized' }, 401);
+    }
+    const userId = userData.user.id;
+    const { data: adminRow, error: adminErr } = await sr
+      .from('admins').select('id').eq('id', userId).maybeSingle();
+    if (adminErr || !adminRow) {
+      return json({ ok: false, error: 'not an admin' }, 403);
+    }
+    const { data: logs, error: logsErr } = await sr
+      .from('activity_logs')
+      .select('id, username, game_id, action, points_awarded, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (logsErr) {
+      return json({ ok: false, error: 'query failed' }, 500);
+    }
+    return json({ ok: true, logs: logs ?? [] });
+  }
+
   if (req.method !== 'POST') return json({ ok: false, error: 'POST only' }, 405);
 
   try {
-    /* ---- auth: must carry a real user JWT ---- */
     const authHeader = req.headers.get('Authorization') ?? '';
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -53,31 +105,39 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    /* ---- request shape ---- */
     const body = await req.json().catch(() => null);
     const gameId = String(body?.game_id ?? '');
     const answer = String(body?.answer ?? '');
+    const username = body?.username ? String(body.username).trim() : null;
     if (!/^[a-z0-9-]{2,40}$/.test(gameId) || !answer.trim()) {
       return json({ ok: false, error: 'bad request' }, 400);
     }
 
-    /* ---- the sealed row (service role only, RLS shields it) ---- */
-    const { data: row, error: rowErr } = await admin
+    /* ---- attach the player name to the profile (once per login) ---- */
+    if (username) {
+      try {
+        await sr.from('profiles').upsert({
+          id: userId,
+          username: username,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' });
+      } catch (e) { /* name storage is best-effort; scoring is unaffected */ }
+    }
+
+    const { data: row, error: rowErr } = await sr
       .from('puzzle_answers')
       .select('game_id, kind, answer_hash, aliases, points, reveal')
       .eq('game_id', gameId)
       .maybeSingle();
     if (rowErr || !row) return json({ ok: false, error: 'unknown game' }, 404);
 
-    /* ---- verdict ---- */
     const correct =
       row.kind === 'exact'
         ? fingerprint(answer) === row.answer_hash
         : geoCorrect(answer, row.aliases);
     if (!correct) return json({ ok: true, correct: false });
 
-    /* ---- award once (atomic server-side) ---- */
-    const { data: award, error: awardErr } = await admin.rpc('award_solve', {
+    const { data: award, error: awardErr } = await sr.rpc('award_solve', {
       p_user: userId,
       p_game: gameId,
       p_points: row.points,
@@ -85,6 +145,15 @@ Deno.serve(async (req) => {
     if (awardErr) return json({ ok: false, error: 'award failed' }, 500);
 
     const total = (award as Array<{ newly: boolean; total: number }> | null)?.[0]?.total ?? null;
+    try {
+      await sr.from('activity_logs').insert({
+        user_id: userId,
+        username: username || 'unknown',
+        game_id: gameId,
+        action: correct ? 'solved' : 'attempt',
+        points_awarded: correct ? row.points : 0,
+      });
+    } catch (e) { /* best-effort logging — never block the game */ }
     return json({
       ok: true,
       correct: true,
@@ -102,7 +171,7 @@ Deno.serve(async (req) => {
    the digests in puzzle_answers were produced by exactly this routine
    (tools/vault-cli.js runs the same file). Any divergence voids answers.
    ========================================================================== */
-function fingerprint(text: string): string | null {
+function fingerprint(text) {
   let t = String(text == null ? '' : text).trim().replace(/\s+/g, '');
   t = t.replace(/[×✕]/g, 'x');
   t = t.replace(/\(([QRBN])\)/i, '=$1');
@@ -126,10 +195,10 @@ function fingerprint(text: string): string | null {
    letters-only; exact, both-way substring on 4+ letters, Levenshtein ≤1 on
    5-letter words and ≤2 on 6+).
    ========================================================================== */
-function geoNorm(s: string): string {
-  const map: Record<string, string> = {
-    '\u00fe': 'th', '\u00f0': 'd', '\u00e6': 'ae', '\u00f6': 'o', '\u00e1': 'a',
-    '\u00e9': 'e', '\u00ed': 'i', '\u00f3': 'o', '\u00fa': 'u', '\u00fd': 'y',
+function geoNorm(s) {
+  const map = {
+    'þ': 'th', 'ð': 'd', 'æ': 'ae', 'ö': 'o', 'á': 'a',
+    'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ý': 'y',
   };
   const lower = String(s).toLowerCase();
   let out = '';
@@ -140,13 +209,13 @@ function geoNorm(s: string): string {
   return out.replace(/[^a-z]/g, '');
 }
 
-function lev(a: string, b: string): number {
+function lev(a, b) {
   if (a === b) return 0;
   if (!a.length) return b.length;
   if (!b.length) return a.length;
-  let prev: number[] = [];
-  let cur: number[] = [];
-  let i: number, j: number, cost: number;
+  let prev = [];
+  let cur = [];
+  let i, j, cost;
   for (j = 0; j <= b.length; j++) prev[j] = j;
   for (i = 1; i <= a.length; i++) {
     cur[0] = i;
@@ -159,7 +228,7 @@ function lev(a: string, b: string): number {
   return prev[b.length];
 }
 
-function geoCorrect(input: string, aliases: unknown): boolean {
+function geoCorrect(input, aliases) {
   const cand = geoNorm(input);
   if (!cand) return false;
   const list = Array.isArray(aliases) ? (aliases as string[]) : [];
