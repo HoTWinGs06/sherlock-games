@@ -1,0 +1,2 @@
+# never deploy the plaintext answer vault
+supabase/seed-answers.sql
