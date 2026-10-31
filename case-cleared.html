@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Case Cleared — 221B Baker Street</title>
+    <script>
+        /* Direct visits can't skip the stage — no cleared flag, no entry. */
+        if (!sessionStorage.getItem('sherlock-door-cleared')) {
+            location.replace('index.html');
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="case-page">
+        <!-- ===== Case header ===== -->
+        <header class="case-header">
+            <div class="address">Case File #SH-001 — Closed</div>
+            <h1>The Study Opens</h1>
+            <p class="case-subtitle" id="subtitleLine">The brass handle turns. The mechanism releases with a soft clunk.</p>
+        </header>
+
+        <!-- ===== Cleared card ===== -->
+        <section class="case-card cleared-card">
+            <div class="cleared-stamp">Door Unlocked</div>
+
+            <p class="cleared-lead">
+                You gave the mechanism a word it would accept — the same letters the vault
+                taught you, in an order that made them mean <em>attention</em>.
+            </p>
+
+            <p class="cleared-text">
+                The study door swings inward, revealing a dimly lit room — papers scattered
+                across a mahogany desk, a violin in the corner, and a single oil lamp
+                casting long shadows.
+            </p>
+
+            <div class="action-row">
+                <a href="index.html" class="btn btn-primary">Return to the Door</a>
+                <a href="wordle.html" class="btn btn-outline">Replay Wordle</a>
+            </div>
+        </section>
+
+        <!-- ===== Case #SH-002 access ===== -->
+        <section class="case-card cleared-card" aria-label="Second case file">
+            <div class="cleared-stamp">Another Case Awaits</div>
+            <p class="cleared-text">
+                On the desk, a second case file lies open — photographs of distant ground
+                taken in Iceland, waiting to be named.
+            </p>
+            <div class="action-row">
+                <a href="location.html" class="btn btn-primary">Case #SH-002 &middot; Guess the Location</a>
+            </div>
+        </section>
+
+        <!-- ===== Case #SH-003 access ===== -->
+        <section class="case-card cleared-card" aria-label="Third case file">
+            <div class="cleared-stamp">And One More on the Desk</div>
+            <p class="cleared-text">
+                Beside the photographs sits the mahogany chess set — five verified
+                positions, each holding exactly one line that wins.
+            </p>
+            <div class="action-row">
+                <a href="chess.html" class="btn btn-primary">Case #SH-003 &middot; Chess Puzzles</a>
+            </div>
+        </section>
+
+        <!-- ===== Case #SH-005 · The Notch's Mystery ===== -->
+        <section class="case-card cleared-card" aria-label="Fourth case file">
+            <div class="cleared-stamp">A Bundle Too Neat to Ignore</div>
+            <p class="cleared-text">
+                Under the far lip of the desk: a flat bundle, string-tied, sealed by the
+                architect himself. Seven files inside. Play, and the message on top speaks first.
+            </p>
+            <div class="action-row">
+                <a href="notch.html" class="btn btn-primary">Play &mdash; The Notch's Mystery</a>
+            </div>
+        </section>
+
+        <footer class="case-footer">
+            <p class="case-note">Sherlock Holmes Consulting — 221B Baker Street, London</p>
+        </footer>
+    </main>
+
+    <script src="game.js"></script>
+    <script>
+        // Personalise the subtitle with the password the player used
+        const used = sessionStorage.getItem('sherlock-password-used');
+        if (used) {
+            document.getElementById('subtitleLine').textContent =
+                `Password accepted: "${used}". The mechanism releases with a soft clunk.`;
+        }
+    </script>
+</body>
+</html>

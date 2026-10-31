@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Vault — Wordle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="case-page">
+        <!-- ===== Case header ===== -->
+        <header class="case-header">
+            <div class="address">221B Baker Street</div>
+            <h1>The Vault</h1>
+            <p class="case-subtitle" id="vaultSubtitle"></p>
+        </header>
+
+        <!-- ===== Board card ===== -->
+        <section class="case-card vault-board">
+            <div class="wordle-grid" id="wordleGrid" aria-label="Guesses"></div>
+
+            <p class="vault-message" id="vaultMessage" role="status" aria-live="polite"></p>
+
+            <div class="vault-keyboard" id="vaultKeyboard" aria-label="Keyboard"></div>
+        </section>
+
+        <!-- ===== Verdict (revealed after the board finishes) ===== -->
+        <section class="case-card vault-verdict" id="vaultResult" hidden>
+            <p id="resultText"></p>
+            <div class="verdict-actions">
+                <button class="btn btn-outline" id="replayBtn" hidden>Replay the Wordle</button>
+                <a href="#" class="btn btn-primary" id="returnLink">Return to the Study</a>
+            </div>
+        </section>
+
+        <footer class="case-footer">
+            <p class="case-note">Case File #SH-001 · The Silent Vault</p>
+        </footer>
+    </main>
+
+    <script src="game.js"></script>
+    <script>
+        /* =====================================================================
+           VAULT WORDLE — EDIT HERE
+           VAULT_CODES : char codes XOR'd with 0x37, so the word never exists
+                         as readable text anywhere in this file.
+           To pick a new word: open the console and run
+             'YOURWORD'.split('').map(c => c.charCodeAt(0) ^ 0x37)
+           then paste the numbers below.
+           ===================================================================== */
+        const CONFIG = {
+            VAULT_CODES: [100, 126, 123, 114, 121, 99],
+            TRIES: 6,
+            SUBTITLE: 'Six letters. A word for making no sound at all. But remember — a key is never the echo it came from.',
+            RETURN_URL: 'index.html',
+            WIN_TEXT: 'The word is {WORD}.\nBut that is not the password — that is only what the word sounds like.\nReturn to the study and give it a DIFFERENT word made from exactly these letters.',
+            LOSE_TEXT: 'The vault stays shut. Six tries are spent, and the word never left the iron.\nReplay the wordle — the board is wiped, and six fresh tries are waiting.'
+        };
+        /* ===== END EDIT ===== */
+
+        const WORD = CONFIG.VAULT_CODES.map(c => String.fromCharCode(c ^ 0x37))
+            .join('').toUpperCase().replace(/[^A-Z]/g, '');
+        const N = WORD.length;
+        /* Progress lives in sessionStorage (per browser tab): a refresh keeps
+           your guesses, but closing the tab wipes everything — so the next
+           player always starts on an empty board. */
+        const PROGRESS_KEY = 'sh-vault-progress';
+        /* Purge stale boards saved by earlier builds (they used localStorage). */
+        try { localStorage.removeItem('wordle-' + btoa(WORD)); } catch (e) {}
+
+        const STEP = 240;     // ms between tile flips
+        const FLIP = 360;     // flip animation length
+
+        let guesses = [], currentGuess = '', gameOver = false, revealing = null;
+
+        const gridEl = document.getElementById('wordleGrid');
+        const messageEl = document.getElementById('vaultMessage');
+        const keyboardEl = document.getElementById('vaultKeyboard');
+        const resultEl = document.getElementById('vaultResult');
+        const resultTextEl = document.getElementById('resultText');
+        const returnLinkEl = document.getElementById('returnLink');
+        const replayBtnEl = document.getElementById('replayBtn');
+
+        document.getElementById('vaultSubtitle').textContent = CONFIG.SUBTITLE;
+
+        /* --- restore in-progress guesses from this tab only --- */
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(PROGRESS_KEY));
+            if (saved && !saved.o && Array.isArray(saved.g)) guesses = saved.g;
+        } catch (e) {}
+
+        /* A finished or used-up board must never survive a page load. */
+        if (guesses.length && (typeof guesses[0] !== 'string' || guesses[0].length !== N ||
+            guesses.length >= CONFIG.TRIES || guesses[guesses.length - 1] === WORD)) {
+            guesses = [];
+        }
+
+        /* A fresh board invalidates any win-mark left by a previous run in
+           this tab, so the door reminder can't leak to the next player. */
+        if (!guesses.length) {
+            try {
+                sessionStorage.removeItem('sh-vault-word');
+                sessionStorage.removeItem('sh-vault-solved');
+            } catch (e) {}
+        }
+
+        /* Letter feedback — classic Wordle rules:
+           'hit'  → green  (right letter, right position)
+           'near' → yellow (letter exists elsewhere in the word)
+           'miss' → gray   (letter not in the word at all)
+           Two passes make repeated letters behave correctly. */
+        function score(guess) {
+            const res = Array(N).fill('miss');
+            const pool = {};
+            for (let i = 0; i < N; i++) {
+                if (guess[i] === WORD[i]) res[i] = 'hit';
+                else pool[WORD[i]] = (pool[WORD[i]] || 0) + 1;
+            }
+            for (let i = 0; i < N; i++) {
+                if (res[i] !== 'hit' && pool[guess[i]] > 0) { res[i] = 'near'; pool[guess[i]]--; }
+            }
+            return res;
+        }
+
+        function buildGrid() {
+            gridEl.innerHTML = '';
+            for (let r = 0; r < CONFIG.TRIES; r++) {
+                const row = document.createElement('div');
+                row.className = 'wordle-row';
+                row.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+                for (let c = 0; c < N; c++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'wordle-tile';
+                    row.appendChild(tile);
+                }
+                gridEl.appendChild(row);
+            }
+        }
+
+        function buildKeyboard() {
+            keyboardEl.innerHTML = '';
+            ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'].forEach((line, i) => {
+                const row = document.createElement('div');
+                row.className = 'key-row';
+                if (i === 2) {
+                    row.appendChild(makeKey('DEL', 'Delete', 'key key-wide'));
+                }
+                [...line].forEach(ch => row.appendChild(makeKey(ch, ch, 'key')));
+                if (i === 1) {
+                    row.appendChild(makeKey('ENTER', 'Enter', 'key key-wide'));
+                }
+                keyboardEl.appendChild(row);
+            });
+        }
+
+        function makeKey(k, label, cls) {
+            const b = document.createElement('button');
+            b.className = cls;
+            b.textContent = label;
+            b.dataset.key = k;
+            b.setAttribute('aria-label', label);
+            return b;
+        }
+
+        function paint() {
+            const rows = gridEl.children;
+            for (let r = 0; r < CONFIG.TRIES; r++) {
+                const tiles = rows[r].children;
+                const guess = guesses[r];
+                const live = r === guesses.length && !gameOver;
+                const animating = (r === revealing);
+
+                for (let c = 0; c < N; c++) {
+                    const tile = tiles[c];
+                    let char = '', cls = 'wordle-tile';
+
+                    if (guess) {
+                        char = guess[c];
+                        cls += animating ? ' filled' : ' ' + score(guess)[c];
+                    } else if (live && currentGuess[c]) {
+                        char = currentGuess[c];
+                        cls += ' active';
+                    }
+                    tile.textContent = char;
+                    tile.className = cls;
+                }
+            }
+
+            if (revealing === null) {
+                const best = {};
+                const rank = { miss: 1, near: 2, hit: 3 };
+                guesses.forEach(g => score(g).forEach((s, i) => {
+                    if (!best[g[i]] || rank[s] > rank[best[g[i]]]) best[g[i]] = s;
+                }));
+                keyboardEl.querySelectorAll('.key').forEach(k => {
+                    const st = best[k.dataset.key];
+                    k.className = st ? `key ${st}` : (k.classList.contains('key-wide') ? 'key key-wide' : 'key');
+                });
+            }
+
+            if (gameOver && revealing === null) finishGame();
+        }
+
+        function revealRow(rowIdx) {
+            /* Unlock the board FIRST — even if the animation fails, the game
+               can never stay locked. */
+            setTimeout(() => { revealing = null; paint(); }, (N - 1) * STEP + FLIP + 80);
+            try {
+                const sc = score(guesses[rowIdx]);
+                const tiles = Array.from(gridEl.children[rowIdx].children); // HTMLCollection → array
+                tiles.forEach((tile, c) => {
+                    setTimeout(() => {
+                        tile.classList.add('flip');
+                        setTimeout(() => {
+                            tile.classList.remove('flip');
+                            tile.classList.add(sc[c]);
+                        }, FLIP / 2);
+                    }, c * STEP);
+                });
+            } catch (err) {
+                /* colour the row instantly instead of leaving it uncoloured */
+                revealing = null;
+                paint();
+            }
+        }
+
+        function showMessage(text, shake = false) {
+            messageEl.textContent = text;
+            if (shake) {
+                gridEl.classList.remove('shake');
+                void gridEl.offsetWidth;
+                gridEl.classList.add('shake');
+            }
+        }
+
+        function handleKey(key) {
+            if (gameOver) return;
+            if (revealing !== null && key === 'ENTER') return; // wait out the flip
+
+            if (key === 'DEL') {
+                currentGuess = currentGuess.slice(0, -1);
+            } else if (key === 'ENTER') {
+                if (currentGuess.length < N) {
+                    showMessage(`Need ${N} letters.`, true);
+                    return;
+                }
+                guesses.push(currentGuess);
+                currentGuess = '';
+                showMessage('');
+                if (guesses[guesses.length - 1] === WORD || guesses.length >= CONFIG.TRIES) gameOver = true;
+                saveState();
+                revealing = guesses.length - 1;
+                paint();
+                revealRow(revealing);
+            } else if (currentGuess.length < N && /^[A-Z]$/.test(key)) {
+                currentGuess += key;
+            }
+            paint();
+        }
+
+        function saveState() {
+            try {
+                if (gameOver) {
+                    /* Never persist a finished board — a reload starts fresh. */
+                    sessionStorage.removeItem(PROGRESS_KEY);
+                } else {
+                    sessionStorage.setItem(PROGRESS_KEY, JSON.stringify({ g: guesses, o: false }));
+                }
+            } catch (e) {}
+        }
+
+        function finishGame() {
+            const won = guesses[guesses.length - 1] === WORD;
+            resultTextEl.textContent = (won ? CONFIG.WIN_TEXT : CONFIG.LOSE_TEXT).replace('{WORD}', WORD);
+
+            try {
+                if (won) {
+                    // Stored masked — inspect shows numbers, not the word itself
+                    sessionStorage.setItem('sh-vault-word',
+                        WORD.split('').map(c => c.charCodeAt(0) ^ 0x37).join(','));
+                    sessionStorage.setItem('sh-vault-solved', '1');
+                    returnLinkEl.href = `${CONFIG.RETURN_URL}?solved=1`; // word stays out of the URL
+                    returnLinkEl.textContent = 'Return with a Different Word';
+                    replayBtnEl.hidden = true;   // a solved vault needs no replay
+                } else {
+                    sessionStorage.removeItem('sh-vault-word');
+                    sessionStorage.removeItem('sh-vault-solved');
+                    returnLinkEl.href = CONFIG.RETURN_URL;
+                    returnLinkEl.textContent = 'Return to the Study';
+                    replayBtnEl.hidden = false;  // the board is wiped, six fresh tries
+                }
+            } catch (e) {
+                returnLinkEl.href = CONFIG.RETURN_URL;
+            }
+
+            resultEl.hidden = false;
+        }
+
+        /* Replay — wipes everything: guesses, keyboard colours, stored
+           progress. The word never changes, the six tries start over. */
+        function resetGame() {
+            try {
+                sessionStorage.removeItem(PROGRESS_KEY);
+                sessionStorage.removeItem('sh-vault-word');
+                sessionStorage.removeItem('sh-vault-solved');
+            } catch (e) {}
+            guesses = [];
+            currentGuess = '';
+            gameOver = false;
+            revealing = null;
+            messageEl.textContent = '';
+            resultEl.hidden = true;
+            paint();
+        }
+        replayBtnEl.addEventListener('click', resetGame);
+
+        keyboardEl.addEventListener('click', (e) => {
+            if (e.target.dataset.key) handleKey(e.target.dataset.key);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key === 'Enter') handleKey('ENTER');
+            else if (e.key === 'Backspace') handleKey('DEL');
+            else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+        });
+
+        buildGrid();
+        buildKeyboard();
+        paint();
+    </script>
+</body>
+</html>

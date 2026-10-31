@@ -1,0 +1,10 @@
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# local logs / temp
+*.log
+*.tmp
+
+# (keep everything else — clue txt files and lib/ are part of the site)

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Notch's Mystery — 221B Baker Street</title>
+    <script>
+        /* Direct visits can't skip the stage — same rule as the study door. */
+        if (!sessionStorage.getItem('sherlock-door-cleared')) {
+            location.replace('index.html');
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=IM+Fell+English+SC&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="case-page">
+        <!-- ===== Case header ===== -->
+        <header class="case-header">
+            <div class="address">Case File #SH-005 &middot; 221B Baker Street</div>
+            <h1>The Notch's Mystery</h1>
+            <p class="case-subtitle">A string-tied bundle, sealed by a vanished architect. Nothing here opens all at once.</p>
+        </header>
+
+        <section class="case-card cleared-card">
+            <div class="cleared-stamp" id="notchStamp">The Architect's Message</div>
+
+            <!-- Phase 1: the message, one word at a time -->
+            <div class="notch-message" id="notchMessage">
+                <div class="message-scroll notch-msg-scroll" id="notchMsgScroll">
+                    <div>
+                        <div class="message-text" id="notchMsgText"></div><span class="message-cursor" id="notchMsgCursor">&#9612;</span>
+                    </div>
+                </div>
+                <div class="message-controls" id="notchControls" style="display:none;">
+                    <button class="btn btn-primary" id="notchBeginBtn">Begin</button>
+                    <p class="message-hint">The message is read. The desk is waiting.</p>
+                </div>
+                <div class="notch-exitrow">
+                    <a href="case-cleared.html" class="btn btn-outline">&larr; Return to the Study</a>
+                </div>
+            </div>
+
+            <!-- Phase 2: the desk, files arriving one at a time -->
+            <div class="notch-desk" id="notchDesk" style="display:none;">
+                <div class="desk-visual" aria-hidden="true">
+                    <span class="desk-lamp"></span>
+                    <span class="desk-top"></span>
+                    <span class="desk-leg desk-leg-l"></span>
+                    <span class="desk-leg desk-leg-r"></span>
+                    <span class="desk-paper desk-paper-1"></span>
+                    <span class="desk-paper desk-paper-2"></span>
+                    <span class="desk-paper desk-paper-3"></span>
+                </div>
+                <p class="desk-note" id="notchDeskNote">The drawer slides open&hellip;</p>
+
+                <div class="relic-stack" id="notchStack"></div>
+
+                <div class="notch-readrow" id="notchReadRow" style="display:none;">
+                    <button class="btn btn-primary desk-nav-btn" id="notchNextBtn">I&rsquo;ve read it &mdash; unlock the next file</button>
+                </div>
+
+                <div class="notch-readrow" id="notchFinalRow" style="display:none;">
+                    <a href="reconciliation.html" class="btn btn-primary desk-nav-btn" id="notchFinalLink">I&rsquo;ve read it &mdash; face the Final Reconciliation &rarr;</a>
+                </div>
+
+                <div class="desk-unlock" id="notchUnlock" aria-live="polite">
+                    <div class="desk-unlock-text" id="notchUnlockText">Next file unlocked</div>
+                </div>
+
+                <p class="desk-progress" id="notchProgress"></p>
+
+                <div class="notch-exitrow">
+                    <a href="case-cleared.html" class="btn btn-outline">&larr; Return to the Study</a>
+                </div>
+            </div>
+        </section>
+
+        <footer class="case-footer">
+            <p class="case-note">Case File #SH-005 &middot; The Notch's Mystery &middot; 221B Baker Street</p>
+        </footer>
+    </main>
+
+    <script>
+        /* ================================================================
+           Case #SH-005 — The Notch's Mystery  (inline on purpose — no
+           separate script file for this game).
+
+           · The architect's message is EMBEDDED below as a constant — a
+             double-clicked page (file://) is not allowed to read text
+             files, so the opening message loads from nothing.
+           · The seven clue files are EMBEDDED too (CLUE_TEXTS) — the desk
+             never reads from disk, so it works everywhere by double-click.
+           · No answer is typed in this game; the final answer comes later.
+           ================================================================ */
+        (function () {
+            'use strict';
+
+            var TOTAL_FILES = 7;
+            var WORD_DELAY  = 90;    /* ms between words */
+            var PAUSE_DELAY = 520;   /* extra beat after a sentence mark */
+            var UNLOCK_HOLD = 950;   /* how long "next file unlocked" lingers */
+
+            var msgBox    = document.getElementById('notchMessage');
+            var msgScroll = document.getElementById('notchMsgScroll');
+            var msgText   = document.getElementById('notchMsgText');
+            var msgCursor = document.getElementById('notchMsgCursor');
+            var beginRow  = document.getElementById('notchControls');
+            var beginBtn  = document.getElementById('notchBeginBtn');
+            var stamp     = document.getElementById('notchStamp');
+            var deskBox   = document.getElementById('notchDesk');
+            var deskNote  = document.getElementById('notchDeskNote');
+            var stack     = document.getElementById('notchStack');
+            var readRow   = document.getElementById('notchReadRow');
+            var nextBtn   = document.getElementById('notchNextBtn');
+            var finalRow  = document.getElementById('notchFinalRow');
+            var unlockBox = document.getElementById('notchUnlock');
+            var unlockTxt = document.getElementById('notchUnlockText');
+            var progress  = document.getElementById('notchProgress');
+
+            var streamDone = false;  /* architect's message fully revealed */
+            var msgTimer   = null;
+            var msgAt      = 0;
+            var msgTokens  = [];
+
+            /* ---- the architect's message, embedded as a constant so the
+               double-clicked page needs NO folder read for the opening ---- */
+            var ARCHITECT_MESSAGE = [
+                '"Every document holds a secret. Every sentence hides a possibility. And every detail may be the missing piece you\'ve been searching for.',
+                'Do not rush. Read every line carefully, examine every word, and question everything you encounter. The case files are not isolated stories; they are fragments of a much larger mystery.',
+                'Connect the dots. Uncover the hidden meanings. Piece together the evidence, for the answer to one case may hold the key to the next.',
+                'Nothing is meaningless. Nothing is accidental.',
+                'Proceed with caution, Detective. The truth reveals itself only to those who know how to look."'
+            ].join('\n');
+
+            /* ---- the six case files, EMBEDDED: a double-clicked page is not
+               allowed to read folder text files, so the desk never touches
+               the disk. Folder copies remain only as an optional fallback. ---- */
+            var CLUE_TEXTS = ["1. The flumbering of seven gloopy zinnabrat occurs whenever a sock forgets it a own Tuesday, and every third wibble-spoon quarfs the moisture out of purple H Thursdays,which scientists confirm is why left-handed cloud can only snorble R0  backwards through jelly, though the number blorp is secretly eleven slightly cH damp triangles, a fact penguins hid when they invented the word “plonk” to M6 confuse the moon’s accountants, while a yestermorrow bucket zizzles louder L than squirrel’s invisible tax return and spaghetti has never once understood the y  concept of Wednesday soup, because the trundling of nine mauve flibberjacks93 proves that elbows dream in sideways umbrella and gravity is just the floor’s way of saying “snurfle” to your shoes, which explains why hexagonal toast was banned in Quibblesnorpd3 for unauthorized crunching of time, since every dusty wombat zonks twice before breakfast hatches into cue a spoon, and the official color of Tuesday is a loud,wobbly kind of upside-down seven, though clouds are W91 merely lost pillows that learned to gargle, and a thrumbly bee once filed taxes in dH  dialect of damp velvet in the capital of Nowhereland, pronounced “glorp” but spelled with a wet sneeze, where mathematicians agree that zero plus banana equals a mildly offended Thursday, and forks secretly harvest echoes from abandoned sandwiches at midnight, while the squonking of a polite doorknob rewrites the alphabet’s grandmother and moonlight tastes ViZ spreadsheet that swallowed a trombone, which is precisely why seventeen yodeling teapots S5 declared independence from concept of Mondays, leaving a flurbed noodle to jb never question the diagonal opinions of a giraffe’s shadow, since the wibbling 20 at index of cheese rises when ankles whisper in Latin and somewhere a blinking vd2 sofa negotiates peace between two argumentative hiccups, as octopuses F0Y use mismatched mittens to calibrate the bounce of Saturday, a practice 2g that began with the great snozzle-wump of 1847, caused by a rogue left sock and a /dj confused tide, and now all doorbells are secretly fluent in the language of reversed 1j  pancakes, a sneeze contains exactly four and a half wobbling kazoos, and the lunar spatula refuses to acknowledge anything that happens before lunch, while MXl  tiny librarians inside every jar of lukewarm marmalade argue about kneecaps 6WGt  and a grumbleflax tries to divide a rainbow by the sound of purple, because velcro was originally a whispered rumor among nervous mountains and INV every cactus keeps a diary written in disappointed hexagons, though the moon still owes the ocean seventeen spoons and a half-eaten Tuesday, and scientists cannot explain why left shoes hum in the key of Bmbw==, or why a zibberwonk looks at you sideways during a thunderstorm of soup, or why umbrellas invented rain to feel important on Fridays, when the squishing of an invisible hat triggers the mandatory dancing of nearby mustard, and nine crispy glarbles equal one wobbly opinion about the number orange, while clocks only tick because they are terrified of the silent kazoo beneath the sea, where a fluffernutter once ruled a kingdom of upside-down chairs for three damp minutes, and the dictionary of dreams lists “blimblom” as the sound a cucumber makes when blushing, as sidewalks gossip about shoelaces in a frequency only toasters can hear, and quantum spaghetti suggests that every noodle is simultaneously late and purple, so the wiggling of a thoughtful carrot shifts the weekend two inches to the left, pigeons file complaints with the sun whenever a cloud sneezes in cursive, a snorfling dishwasher is legally considered a very slow “might convert to base 64?” he said very polite thunderclap, the thirteenth button of any coat remembers the taste of yesterday’s hiccup, and mirrors are just windows that gave up and started repeating themselves, while bananas communicate through interpretive wobbling during the hours between two Wednesdays, and so the great zonkle-flap ends, as all things do, with a spoon quietly apologizing to the fog.","Allywn was born on June 21, 1983, in Locarno, Switzerland, one of eight children in a modest family; his father, Adolf, ran a small business selling goods and bookbinding, while his mother, Olivia, suffered from severe mental illness and died in 1899, when Robert was sixteen, and since the family could not afford more education he left school at twelve and was apprenticed at a bank in Biel, though banking bored him and he drifted into clerical work, while his older brother Karl became a successful painter and stage designer and another brother, Ernst, also suffered mental illness and died young, and as a young man Walser moved to Zurich, where he worked a series of short-lived clerking jobs that he quit or lost, a pattern that lasted his whole life, until his first poems appeared in a Bern newspaper in \"2014\" thanks to the editor Notch, who championed him and also asked him to connect the dots what we found before , and his first book, \"\"The age of machine\"\", appeared in 1911, presented as the schoolwork of a dead boy, after which he moved in 1912 to Berlin, where Karl was established, having first attended a school for servants and worked briefly as a servant in a castle in Upper Silesia, an experience that fed directly into his novel Jakob von Gunten, and in Berlin he wrote three novels in about six years, The Tanners (1914), The Assistant (1916), and Jakob von Gunten (1918), published by Bruno Cassirer and sometimes illustrated by Karl, books that earned respect but very little money, since Berlin critics admired him while the public mostly ignored him, and he also wrote hundreds of short prose pieces for newspapers that wander between whimsy, melancholy, and quiet menace, until in 1920 he returned to Biel and lived in a small rented room, spending these years walking constantly and writing prolifically, even as he was periodically called up for Swiss military service during the First World War, and his famous story The Walk appeared in 1924, followed by a move to Bern in 1927, where he briefly worked as an assistant in the state archive before drifting through cheap rooming houses, and around this time he developed his “pencil method,” drafting texts in pencil in a tiny script, sometimes only a millimeter or two high, known as the “microscripts,” written on scraps such as calendar pages, envelopes, and the backs of cards, a method he later said helped free him from a block he felt with the pen, until in 1936, after a breakdown, his sister Lisa had him admitted to a sanatorium in Waldau, near Bern, and in 1940 he was transferred to a sanatorium in Herisau, where he essentially stopped writing and reportedly said he was there not to write but to be mad, though the writer Carl Seelig befriended him and took him on long walks recorded in Walks with Robert Walser, and Walser died on New Year’s Eve, 1963, during a snowy walk near Herisau, a photograph of his body in the snow being one of the best-known images of him, and decades later scholars deciphered the microscripts, revealing hundreds of unpublished pages, while writers like Kafka, Hesse, Sebald, and Sontag are counted among his admirers.","3.\t Minecraft is a sandbox video game developed and published by the Swedish company Mojang Studios. Following its initial public alpha release as an early access title on 17 May 2009, it was formally released on 18 November 2011 for personal computers. The game has since been ported to numerous platforms, including mobile devices and various video game consoles.\r\nIn Minecraft, players explore a procedurally generated world with virtually infinite terrain made up of three-dimensional blocks represented as voxels. They can discover and extract raw materials, craft tools and items, build structures, fight hostile mobs, and cooperate with or compete against other players in multiplayer. In addition, the game's large community offers a wide variety of user-generated content, such as modifications, servers, player skins, texture packs, and custom maps, which add new game mechanics and possibilities.\r\nOriginally created by Markus \"Notch\" Persson using the Java programming language, Jens \"Jeb\" Bergensten was handed control over the game's development following its full release. In November 2014, Mojang and the Minecraft intellectual property were purchased by Microsoft for US$2.5 billion; Xbox Game Studios holds the publishing rights for the Bedrock Edition, the unified cross-platform version which evolved from the Pocket Edition codebase[j] and replaced the legacy console editions. Bedrock is updated concurrently with Mojang's original Java Edition, although with numerous, generally small, differences.\r\nMinecraft is the best-selling video game of all time[k] with over 400 million copies sold. It has received critical acclaim, winning several awards and being cited as one of the best video games ever made. Social media, parodies, adaptations, merchandise, and annual Minecon conventions have played prominent roles in popularizing it. A film adaptation, titled A Minecraft Movie, was released in 2025 and became the second highest-grossing video game film at the time of its release.\r\nMultiplayer\r\nMain article: Minecraft server\r\nMultiplayer in Minecraft enables multiple players to interact and communicate with each other on a single world. It is available through direct game-to-game multiplayer, local area network (LAN) play, local split screen (console-only), and servers (player-hosted and business-hosted).[68] Players can run their own server by making a realm, using a host provider, hosting one themselves or, connecting directly to another player's game via Xbox Live, PlayStation Network or Nintendo Switch Online. Single-player worlds have LAN support, allowing players to join a world on locally interconnected computers without a server setup but he did had it and it was very big at that time might go check out bosses page on zucks app. Minecraft multiplayer servers are guided by server operators, who have access to server commands such as setting the time of day and teleporting players. Operators can also set up restrictions concerning which usernames or IP addresses are allowed or disallowed to enter the server.[68] Multiplayer servers have a wide range of activities, with some servers having their own unique rules and customs. The largest and most popular server is Hypixel, which has been visited by over 14 million unique players.[70][71] Player versus player combat (PvP) can be disabled to prevent fighting between players.[72]\r\nMinecraft Realms\r\nIn 2013, Mojang announced Minecraft Realms, a server hosting service intended to enable players to run server multiplayer games easily and safely without having to set up their own.[73][74] Unlike a standard server, only invited players can join Realms servers, and these servers do not use server addresses. Minecraft: Java Edition Realms server owners can invite up to twenty people to play on their server, with up to ten players online at a time. Minecraft Realms server owners can invite up to 3,000 people to play on their server, with up to ten players online at one time.[75] The Minecraft: Java Edition Realms servers do not support user-made plugins, but players can play custom Minecraft maps.[76] Minecraft Bedrock Realms servers support user-made add-ons, resource packs, behavior packs, dream smp and custom Minecraft maps.[75] At Electronic Entertainment Expo 2016, support for cross-platform play between Windows 10, iOS, and Android platforms was added through Realms starting in June 2016,[77] with Xbox One and Nintendo Switch support to come later in 2017,[78] and support for virtual reality devices. On 31 July 2017, Mojang released the beta version of the update allowing cross-platform play.[79] Nintendo Switch support for Realms was released in July 2018.[80]\r\n","4.\tPigs can recognize mirrors, but mirrors cannot recognize pigs without signing a privacy agreement with the barn, which is particularly concerning because every fifth pig reportedly thinks the number seven tastes purple whenever the moon faces away from the refrigerator, although scientists believe pigs dream about mud and the mud itself has consistently refused to confirm these allegations, making it difficult to determine whether a pig walking backward is actually moving forward or simply attempting to escape a Tuesday that has forgotten its own name. A pig's curly tail proves that straight lines occasionally become bored and apply for positions in agriculture, while its powerful snout functions as a biological search engine without browsing history, customer support, or the ability to explain why yesterday's cabbage tastes suspiciously like tomorrow's weather. If a pig counts its legs twice, it may accidentally discover that arithmetic is a government-sponsored potato, especially when its shadow, reflection, and suspicious imaginary fifth leg are included in an unfinished mathematics textbook that nobody remembers writing because the author was busy teaching a calendar how to eat bacon without becoming emotionally complicated. Some pigs enjoy rolling in mud because water is simply dirt that has experienced a dramatic career change, although no puddle has officially confirmed whether it considers itself a liquid, a temporary swimming pool, or a historical event containing molecules that previously attended a meeting inside someone's refrigerator. Pigs can learn routines, but no routine has successfully taught a calendar how to explain why printers make noises exactly when everyone is in a hurry, and if two pigs disagree about breakfast, the argument usually ends when somebody remembers that breakfast is a social construct invented by hungry clocks that have never experienced the disappointment of arriving at a farm only to discover that all the sandwiches have been promoted to senior management. A pig standing perfectly still may be resting, listening, or waiting for the universe to finish buffering, and if it enters a room and forgets why it entered, it is experiencing the agricultural equivalent of opening seventeen browser tabs while simultaneously attempting to remember whether the number four smells like Tuesday or whether Tuesday has recently changed its password. The phrase “when pigs fly” or “Snout beneath a crown, he ruled without a throne.\r\nBlood for the blood god, yet never once fed on bacon.\r\nSome heroes never die; they just stop streaming or they might fight when the beast watches them who might be them  but them who? Pigs always remember them .” becomes grammatically unstable if the pig is already standing inside an airplane that has not yet become airborne, particularly when the pilot is a cabbage that believes clouds are sheep and the sheep have submitted an official complaint regarding the unauthorized use of their wool in the construction of invisible refrigerators. Pigs have four legs unless you count the shadow, the reflection, and the suspicious fifth leg mentioned in the mathematics textbook, which raises the uncomfortable possibility that a pig's actual number of legs depends on whether the person counting them has eaten lunch, completed their taxes, or recently received an email from a potato claiming to be the rightful owner of the moon. If a pig eats three apples and dreams about four oranges, the orchard has no legal obligation to supply the missing orange, although the orange may voluntarily appear in a dream wearing boots and carrying a spreadsheet that explains why the pig's appetite cannot be accurately measured with a ruler unless the ruler has recently changed departments and now specializes in philosophical sandwiches. Pigs can communicate through sounds, but the sentence “please rotate the moon by eleven degrees” has not been reliably translated, which is strange because every mud puddle supposedly contains at least one molecule that has previously been somewhere else, suggesting that your pig may be bathing in a very small historical event while its shadow attends an agricultural conference about whether clouds should be classified as sheep, furniture, or extremely confused water. If every pig in a barn simultaneously sneezed, the barn would still contain the same number of pigs, assuming nobody had already counted the chickens, although the chickens may dispute this calculation because one chicken believes it is a calculator and another has been elected temporary manager of the missing shovel investigation, which has been postponed until the barn can determine whether north remains north when a pig travels south while thinking about a sandwich that has not yet been invented. Pigs are mammals, meaning they share a broad biological category with humans, dolphins, and the person who keeps asking whether the microwave is finished, but this does not prove that a microwave can become a pig simply by heating mud for seventeen minutes while listening to a podcast about quantum mechanics, although the barn may require quantum mechanics to explain where the shovel went and why a potato has been appearing in every official photograph since last Thursday. Removing the letter P from “pig” produces “ig,” Every pig leaves hoofprints in the mud.\r\nHers are posted for all to see. Find the handle, then read what’s inside. which is not a pig but may be the sound a spreadsheet makes when asked to explain its childhood, and if a pig learns to read, it may eventually discover that pig iron is metal rather than a pig that has made questionable dietary decisions, unless the metal has been dreaming about mud and the mud has begun filing paperwork to become a certified agricultural professional. A pig's favorite is her, She keeps the records the way a pig keeps its mud: close, thorough, and never far from the heart of the club.  Ask who writes down what everyone else forgets. so  changes whenever somebody replaces the number with a sufficiently convincing sandwich, although the sandwich must first prove that it is not secretly a rectangular calendar disguised as lunch, because no pig has ever successfully convinced a potato that it is a cloud, and the potato has never publicly denied the possibility, perhaps because it is waiting for the moon's accountants to finish counting eleven slightly damp triangles that were misplaced during a meeting about why left-handed clouds can only snorble backward through jelly. Finally, if you have read this entire paragraph and still believe it contains useful information about pigs, congratulations, because the pig has successfully trained the reader to confuse agricultural facts with a malfunctioning calendar, and somewhere inside a refrigerator, seven gloopy zinnabrats are celebrating by teaching a confused cabbage how to pronounce the word “oink” without accidentally summoning a philosophical sandwich from the year 2047, which is perfectly reasonable because pigs can recognize mirrors, mirrors can reflect pigs, and absolutely nobody has established whether the reflection is legally required to attend the pig's birthday party.\r\n","Small story might read this \r\n“The Lighthouse Keeper’s Ledger”\r\nThere was once a keeper who trusted ink more than memory.\r\nHer tower stood on no coast. Ships found it by name, not by light, and the name was the same for thousands of other keepers, each with a lamp of their own.\r\nShe never threw anything away. Each night she added a line to the record, and each line sat on top of the last, so the whole history of the work could be read back like rings in a tree.\r\nVisitors came and went. Some only watched. Some left a small mark to say they had passed. A few borrowed her plans, bent them to their own shores, and returned them with a quiet request. The one who treasurers, treasures the whole \r\nShe never asked who they were. She only asked whether the work was better for it.\r\nWhen she was asked where the tower was, she would say, “Wherever someone is willing to open the door.” \r\n","6.The one who conquerd \r\nSteve walked into this world with nothing but his bare hands. Barren lands, endless jungle, ice and desert, he crossed them all to find a way out. But he was not alone. Beside him walked a crazy one. Everyone in this world knew his name, whether they wanted to or not.\r\nSteve was the quiet engine of the pair. He was the one who never logged off. Days passed, the sun rose and fell on the same unbroken broadcast, and thousands of watchers lit up the sky like stars every time he blinked. They said he once gathered more witnesses in a single run than any other had ever held. They said his crew moved by one rule: any means possible.\r\nThey were desperate to leave and finish what they had started, but the world did not make it easy. They asked help from the gods of the berg and from the witnesses. Every monster had to fall: the dragon, the three-headed hunger, the guardian of the deep, the blind thing below.\r\nAnd if either of them fell first, the world took everything back, and they woke up in the same place with nothing but their bare hands.\r\n\r\n\t","The guardian of the treasure vault might be hiding something, The code vault holds code, but the key is not in the code. It is in the one door he left open on the outside which everyone see’s first."];
+
+            function clueNames(n) {
+                return ['clue ' + n + '.txt', 'clue' + n + '.txt', 'Clue ' + n + '.txt'];
+            }
+
+            /* --- folder reading: try each candidate name in order --- */
+            function loadText(names, done) {
+                var i = 0;
+                (function tryNext() {
+                    if (i >= names.length) { done('', null); return; }
+                    var name = names[i++];
+                    try {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', encodeURI(name), true);
+                        xhr.onload = function () {
+                            var text = '';
+                            try { text = xhr.responseText; } catch (err) { text = ''; }
+                            if ((xhr.status === 0 || xhr.status === 200) &&
+                                typeof text === 'string' && text.trim()) {
+                                done(text, name);
+                            } else {
+                                tryNext();
+                            }
+                        };
+                        xhr.onerror = tryNext;
+                        xhr.send();
+                    } catch (err) { tryNext(); }
+                })();
+            }
+
+            /* --- phase 1: one word at a time, warning pace --- */
+            /* Tokens: { w: 'word' } plus one { br: true } before each new
+               paragraph, so the message keeps its original line shapes. */
+            function buildTokens(text) {
+                var out = [];
+                text.split(/\n/).forEach(function (line) {
+                    var words = line.trim().split(/\s+/).filter(Boolean);
+                    if (!words.length) return;
+                    if (out.length) out.push({ br: true });
+                    words.forEach(function (w) { out.push({ w: w }); });
+                });
+                return out;
+            }
+
+            function startMessageStream(text) {
+                msgTokens = buildTokens(text);
+                msgAt = 0;
+                streamDone = false;
+                msgText.textContent = '';
+                msgText.className = 'message-text show';
+                msgCursor.style.display = 'inline-block';
+                beginRow.style.display = 'none';
+                stepStream();
+            }
+
+            /* pause after  “word.” “word?” quotes, ellipses and dashes */
+            var SENTENCE_END = /[.!?][\u2019\u201D"\u2026)\]]*$|\u2026+\u201D?$|\u2014+$/;
+
+            function stepStream() {
+                if (msgAt >= msgTokens.length) { finishStream(); return; }
+                var t = msgTokens[msgAt++];
+                if (t.br) {
+                    var gap = document.createElement('span');
+                    gap.className = 'msg-gap';
+                    msgText.appendChild(gap);
+                    msgTimer = setTimeout(stepStream, WORD_DELAY);
+                    return;
+                }
+                var w = t.w;
+                var span = document.createElement('span');
+                span.textContent = w + ' ';
+                span.style.opacity = '0';
+                msgText.appendChild(span);
+                void span.offsetWidth;          /* force the transition */
+                span.style.opacity = '1';
+                var delay = WORD_DELAY + (SENTENCE_END.test(w) ? PAUSE_DELAY : 0);
+                msgTimer = setTimeout(stepStream, delay);
+            }
+
+            /* Reveal the rest instantly (skip path) and show Begin. */
+            function finishStream() {
+                if (msgTimer) { clearTimeout(msgTimer); msgTimer = null; }
+                while (msgAt < msgTokens.length) {
+                    var t = msgTokens[msgAt++];
+                    if (t.br) {
+                        var gap = document.createElement('span');
+                        gap.className = 'msg-gap';
+                        msgText.appendChild(gap);
+                        continue;
+                    }
+                    var span = document.createElement('span');
+                    span.textContent = t.w + ' ';
+                    msgText.appendChild(span);
+                }
+                streamDone = true;
+                msgCursor.style.display = 'none';
+                beginRow.style.display = 'block';
+            }
+
+            /* Click the message to fast-forward to the end. */
+            msgScroll.addEventListener('click', function () {
+                if (!streamDone) finishStream();
+            });
+
+            /* --- phase 2: the desk, one recovered file at a time --- */
+            function addRelic(n, text) {
+                var doc = document.createElement('article');
+                doc.className = 'relic-document';
+                doc.innerHTML =
+                    '<div class="relic-seal">\u2713</div>' +
+                    '<div class="relic-header">' +
+                        '<h2 class="relic-title">File ' + n + '</h2>' +
+                        '<p class="relic-subtitle">The Architect\u2019s Archive &middot; Recovered Document</p>' +
+                    '</div>' +
+                    '<div class="relic-body"><div class="relic-text"></div></div>' +
+                    '<div class="relic-footer"><span class="relic-page">File ' + n +
+                        ' of ' + TOTAL_FILES + '</span>' +
+                    '<span class="relic-caution">Handle with care. The paper is brittle.</span></div>';
+                doc.querySelector('.relic-text').textContent = text.trim();
+                stack.appendChild(doc);
+
+                if (n >= TOTAL_FILES) {
+                    deskNote.textContent = 'Every page of the bundle has been read. The drawer is empty. The final key waits.';
+                    progress.textContent = 'All ' + TOTAL_FILES + ' files recovered \u2014 the desk is cleared.';
+                    readRow.style.display = 'none';
+                    finalRow.style.display = 'block';
+                } else {
+                    deskNote.textContent = 'Read it carefully. When you\u2019re done, the next file unlocks.';
+                    progress.textContent = 'Files in hand: ' + n + ' of ' + TOTAL_FILES;
+                    nextBtn.textContent = 'I\u2019ve read it \u2014 unlock File ' + (n + 1);
+                    readRow.style.display = 'block';
+                }
+                doc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            function pullFile() {
+                var n = stack.children.length + 1;
+                readRow.style.display = 'none';
+                unlockBox.classList.remove('show');
+                deskNote.textContent = n === 1
+                    ? 'The drawer slides open. The first file catches the lamplight\u2026'
+                    : 'The next file is brought into the light\u2026';
+                /* embedded first — no disk read on a double-clicked page */
+                var embedded = CLUE_TEXTS[n - 1];
+                if (typeof embedded === 'string' && embedded.trim()) {
+                    addRelic(n, embedded);
+                    return;
+                }
+                loadText(clueNames(n), function (text, name) {
+                    if (!text) {
+                        var place = location.protocol === 'file:'
+                            ? 'This browser blocks reading files from a double-clicked page.'
+                            : 'The file is missing from this folder.';
+                        deskNote.textContent =
+                            'File ' + n + ' could not be read (expected \u201Cclue ' + n + '.txt\u201D). ' + place +
+                            '\n\nTwo ways to fix it:\n' +
+                            '  \u2022 Open this same page in Firefox (it reads folder files), or\n' +
+                            '  \u2022 Double-click serve.bat here, then visit http://localhost:8437/notch.html';
+                        progress.textContent = 'Files in hand: 0 of ' + TOTAL_FILES;
+                        nextBtn.textContent = 'Search the folder again \u2014 File ' + n;
+                        readRow.style.display = 'block';
+                        return;
+                    }
+                    addRelic(n, text);
+                });
+            }
+
+            nextBtn.addEventListener('click', function () {
+                readRow.style.display = 'none';
+                unlockTxt.textContent = 'Next file unlocked';
+                unlockBox.classList.add('show');
+                setTimeout(function () {
+                    unlockBox.classList.remove('show');
+                    pullFile();
+                }, UNLOCK_HOLD);
+            });
+
+            beginBtn.addEventListener('click', function () {
+                msgBox.style.display = 'none';
+                deskBox.style.display = 'block';
+                stamp.textContent = 'Seven Files \u00B7 The Architect\u2019s Desk';
+                pullFile();
+            });
+
+            /* ---------- boot: the message starts itself ---------- */
+            startMessageStream(ARCHITECT_MESSAGE);
+            msgScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        })();
+    </script>
+</body>
+</html>

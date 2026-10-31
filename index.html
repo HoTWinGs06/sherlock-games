@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Study — 221B Baker Street</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="case-page">
+        <!-- ===== Case header ===== -->
+        <header class="case-header">
+            <div class="address">221B Baker Street</div>
+            <h1>The Locked Study</h1>
+            <p class="case-subtitle">A heavy oak door stands before you. The brass handle is cold. No key in sight.</p>
+        </header>
+
+        <!-- ===== Door scene: door graphic left, mechanism right ===== -->
+        <section class="case-card door-layout">
+            <figure class="door-figure">
+                <div class="door" id="door" aria-hidden="true">
+                    <div class="door-panel"></div>
+                    <div class="keyhole"></div>
+                    <div class="brass-plate"><span>Enter Password</span></div>
+                </div>
+                <figcaption class="door-caption">The mechanism expects <strong>exactly six letters</strong>.</figcaption>
+            </figure>
+
+            <div class="door-controls">
+                <label class="mech-label" for="passwordInput">The door's mechanism</label>
+                <input
+                    type="text"
+                    id="passwordInput"
+                    class="password-input"
+                    placeholder="— — — — — —"
+                    maxlength="6"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Six letter password"
+                >
+
+                <div class="action-row">
+                    <a href="wordle.html" class="btn btn-outline" id="playWordleBtn">Play Wordle</a>
+                    <button class="btn btn-primary" id="enterBtn">Turn Handle</button>
+                </div>
+
+                <blockquote class="watson-note" id="hintText">
+                    <span class="note-from">Dr. Watson's note reads:</span>
+                    &ldquo;The answer makes no sound, Holmes. But the key? The key is a rearrangement of the very same letters.&rdquo;
+                </blockquote>
+
+                <p class="feedback" id="feedback" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <footer class="case-footer">
+            <p class="case-note">Case File #SH-001 · The Hushed Vault</p>
+        </footer>
+    </main>
+
+    <script src="game.js"></script>
+    <script>
+        /* ================================================================
+           DOOR LOGIC — nothing here reads as a word.
+           The sig hashes are one-way: same input → same number, no decoding.
+           ================================================================ */
+        const SALT_WORD = 0x9e3779;
+        const SALT_SORT = 0x5c1ba7;
+        const TWIST_SIG = 0x275FFFE5; // the vault word itself — NOT the key
+        const KEY_SIG   = 0xABEDDCD5; // shared by every valid rearrangement
+
+        const passwordInput = document.getElementById('passwordInput');
+        const enterBtn = document.getElementById('enterBtn');
+        const feedback = document.getElementById('feedback');
+        const door = document.getElementById('door');
+        const hintText = document.getElementById('hintText');
+        const playWordleBtn = document.getElementById('playWordleBtn');
+
+        /* Saltable 32-bit hash */
+        function fold(s, salt) {
+            let h = (2166136261 ^ salt) >>> 0;
+            for (let i = 0; i < s.length; i++) {
+                h ^= s.charCodeAt(i);
+                h = Math.imul(h, 16777619) >>> 0;
+            }
+            return h >>> 0;
+        }
+
+        /* Returning from the vault? The word arrives masked, not in clear text. */
+        const vaultWord = (() => {
+            const masked = sessionStorage.getItem('sh-vault-word');
+            if (!masked) return '';
+            try {
+                const word = masked.split(',').map(n => String.fromCharCode(n ^ 0x37)).join('');
+                return /^[A-Z]{6}$/.test(word) ? word : '';
+            } catch (err) { return ''; }
+        })();
+        const justSolved = new URLSearchParams(window.location.search).get('solved') === '1';
+
+        if (justSolved && vaultWord) {
+            feedback.innerHTML =
+                'Vault word found: <strong>' + vaultWord + '</strong>. ' +
+                'But a door never opens to its own echo — give the mechanism a <em>different</em> arrangement of those letters.';
+            feedback.className = 'feedback info show';
+
+            hintText.innerHTML =
+                '<span class="note-from">Dr. Watson\'s note reads:</span>' +
+                '&ldquo;You hold six letters, Holmes. Any order but the obvious one. Think, man, think!&rdquo;';
+
+            playWordleBtn.textContent = 'Replay Wordle';
+        }
+
+        /* --- Input hygiene --- */
+        passwordInput.addEventListener('input', function (e) {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+            feedback.textContent = '';
+            feedback.className = 'feedback';
+        });
+
+        /* --- Enter in the field submits --- */
+        passwordInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                tryPassword();
+            }
+        });
+
+        enterBtn.addEventListener('click', tryPassword);
+
+        /* --- Enter still works even if the field lost focus --- */
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            const el = document.activeElement;
+            if (el === passwordInput || el.tagName === 'BUTTON' || el.tagName === 'A') return;
+            tryPassword();
+        });
+
+        function tryPassword() {
+            const input = passwordInput.value.trim().toUpperCase();
+
+            if (input.length !== 6) {
+                showFeedback('Six letters. No more, no less.', 'error');
+                shakeDoor();
+                return;
+            }
+
+            if (fold(input, SALT_WORD) === TWIST_SIG) {
+                /* The vault word verbatim — the twist bites. */
+                showFeedback(
+                    '<strong>&ldquo;' + input + '&rdquo;</strong> — that is the word the vault taught you, not its key. ' +
+                    'Rearrange it. <em>A different word, same letters.</em>',
+                    'error'
+                );
+                shakeDoor();
+                return;
+            }
+
+            /* Sorting makes every genuine rearrangement hash to the same signature. */
+            if (fold(input.split('').sort().join(''), SALT_SORT) === KEY_SIG) {
+                showFeedback('The lock clicks. The door swings inward&hellip;', 'success');
+                door.classList.add('unlocking');
+                setTimeout(function () {
+                    sessionStorage.setItem('sherlock-door-cleared', 'true');
+                    sessionStorage.setItem('sherlock-password-used', input);
+                    window.location.href = 'case-cleared.html';
+                }, 1500);
+                return;
+            }
+
+            showFeedback('<strong>&ldquo;' + input + '&rdquo;</strong> — the mechanism doesn\'t budge.', 'error');
+            shakeDoor();
+        }
+
+        function shakeDoor() {
+            door.classList.remove('shake');
+            void door.offsetWidth;
+            door.classList.add('shake');
+        }
+
+        function showFeedback(message, type) {
+            feedback.innerHTML = message;
+            feedback.className = 'feedback ' + type + ' show';
+        }
+
+        /* A nod for the curious who open the console. */
+        console.log('%cSherlock:%c Curious, Watson? The answer was never lying in the source — only in the clues.',
+            'color:#c49a55;font-weight:700;', 'color:#9fb0a6;font-style:italic;');
+    </script>
+</body>
+</html>

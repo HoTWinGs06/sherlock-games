@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guess the Location — 221B Baker Street</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="case-page">
+        <!-- ===== Case header ===== -->
+        <header class="case-header">
+            <div class="geo-crumb-row">
+                <a class="geo-crumb" href="case-cleared.html">&larr; The Study &middot; 221B Baker Street</a>
+            </div>
+            <div class="address">Case File #SH-002 &middot; Deduction</div>
+            <h1>Guess the Location</h1>
+            <p class="case-subtitle">Somewhere in Iceland, a camera opened its eye. Look around — then name the ground it stood on.</p>
+            <p class="geo-progress" id="geoProgress" aria-live="polite"></p>
+        </header>
+
+        <!-- ===== Panorama stage ===== -->
+        <section class="case-card geo-card" aria-label="Panorama stage">
+            <div class="geo-pano-host" id="geoPano"></div>
+            <p class="geo-instruction">Look around and guess where you are. Drag or swipe to survey; scroll, pinch, &plus;/&minus; or double-click to zoom; use the arrow keys when the stage is focused.</p>
+        </section>
+
+        <!-- ===== Guess bar ===== -->
+        <section class="geo-guessbar" id="geoGuessRow">
+            <label class="geo-mechlabel" for="geoGuess">Your deduction</label>
+            <div class="geo-guess-row">
+                <input
+                    type="text"
+                    id="geoGuess"
+                    class="geo-input"
+                    maxlength="60"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Name the place&hellip;"
+                    aria-label="Your location guess"
+                >
+                <button type="button" class="btn btn-primary" id="geoSubmit">Submit Guess</button>
+            </div>
+            <p class="geo-scoring-note" id="geoGuessNote">One deliberate call per scene.</p>
+        </section>
+
+        <!-- ===== Verdict (filled after each call) ===== -->
+        <section class="case-card geo-verdict" id="geoVerdict" hidden></section>
+
+        <!-- ===== Summary (filled when the scenes run out) ===== -->
+        <section class="case-card geo-summary" id="geoSummary" hidden></section>
+
+        <footer class="case-footer">
+            <p class="case-note">Sherlock Holmes Consulting &mdash; Case #SH-002 &middot; Photographs: Wikimedia Commons, CC-licensed</p>
+        </footer>
+    </main>
+
+    <script src="game.js"></script>
+    <script src="vault.js"></script>
+    <script src="geo.js"></script>
+</body>
+</html>

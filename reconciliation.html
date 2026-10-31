@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Final Reconciliation — 221B Baker Street</title>
+    <script>
+        /* Direct visits can't skip the stage — same rule as the study door. */
+        if (!sessionStorage.getItem('sherlock-door-cleared')) {
+            location.replace('index.html');
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=IM+Fell+English+SC&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="case-page">
+        <!-- ===== Case header ===== -->
+        <header class="case-header">
+            <div class="address">Case File #SH-005 &middot; Final Stage</div>
+            <h1>The Reconciliation</h1>
+            <p class="case-subtitle">Seven files read. The drawer stands empty. One key remains.</p>
+        </header>
+
+        <section class="case-card cleared-card">
+            <div class="cleared-stamp" id="finalStamp">The Final Key</div>
+
+            <p class="cleared-lead" id="finalLead">
+                The bundle is read. The friend of the crazy one spoke once — and the answer
+                is the last thing the architect left behind.
+            </p>
+
+            <div class="final-riddle">
+                <p class="final-question">&ldquo;What did the friend of the crazy one say?&rdquo;</p>
+                <p class="final-sub">This is the final key. Speak it in <strong>small case, with no space</strong> &mdash;
+                one unbroken word.</p>
+            </div>
+
+            <div class="action-row">
+                <input
+                    type="text"
+                    id="finalInput"
+                    class="password-input"
+                    placeholder="one unbroken word"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="The final key"
+                >
+                <button class="btn btn-primary" id="finalSubmitBtn">Turn the Final Key</button>
+            </div>
+
+            <p class="feedback" id="finalFeedback" aria-live="polite"></p>
+            <p class="final-hint" id="finalHint" style="display:none;">
+                A whisper, not a phrase: small case, no space &mdash; what the friend said, unbroken.
+            </p>
+
+            <!-- The verdict, sealed until the key turns -->
+            <div id="finalRevealWrap" style="display:none;">
+                <article class="relic-document">
+                    <div class="relic-seal">&#10003;</div>
+                    <div class="relic-header">
+                        <h2 class="relic-title">The Architect's Verdict</h2>
+                        <p class="relic-subtitle">Case #SH-005 &middot; Reconciled</p>
+                    </div>
+                    <div class="relic-body">
+                        <div class="relic-text" id="finalRevealText"></div>
+                    </div>
+                    <div class="relic-footer">
+                        <span class="relic-page">Verdict</span>
+                        <span class="relic-caution">The case is closed.</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <div class="notch-exitrow">
+            <a href="case-cleared.html" class="btn btn-outline">&larr; Return to the Study</a>
+        </div>
+
+        <footer class="case-footer">
+            <p class="case-note">Case File #SH-005 &middot; The Reconciliation &middot; 221B Baker Street</p>
+        </footer>
+    </main>
+
+    <script src="vault.js"></script>
+    <script>
+        /* ================================================================
+           Final Reconciliation — the final key of The Notch's Mystery.
+           The expected answer exists only as a vault fingerprint (below);
+           the verdict text is a sealed payload, unlocked after the solve.
+           Submitted text folds to the answer's own form: small case, no
+           space — exactly what the riddle demands.
+           ================================================================ */
+        (function () {
+            'use strict';
+
+            var V        = window.SherlockVault;
+            var input    = document.getElementById('finalInput');
+            var submit   = document.getElementById('finalSubmitBtn');
+            var feedback = document.getElementById('finalFeedback');
+            var hint     = document.getElementById('finalHint');
+            var stamp    = document.getElementById('finalStamp');
+            var lead     = document.getElementById('finalLead');
+            var revealWrap  = document.getElementById('finalRevealWrap');
+            var revealText  = document.getElementById('finalRevealText');
+
+            var ANSWER_HASH = 'c5333fe0444fe858';
+            var REVEAL_V    = 'FgkORRk2DVIREAZcQR9iZVBSF1kwCA4LFnMbFEURHFcSUjBQQk4XUCwESxYTOhBSDBFUXVxSJxHat6MfIw8PRQs8AVINBAJXEkIjWFwXXktiAwoGGWlUBg0EAEFeUDJUWVRSE2ISBgQeP1QRBBYRHhJfLRFLR1ZcJ01LAAoyFwYJHFRTQREjQlNSUxFiJwIJF3MHFxMAGhJGXi5VGENfWmIVGRAGO05SEQ0REkRQN11MF19aLgVLERo2VBEKAREeElM3RRhDX1piCg4cUiQVGxEAEBJdRDZCUVNSE2IIBUUGOxFSAQobQBJUNFRKTlhRJ0EEFRc9B1IDDAZBRh9idE5SRUZiBwIJF3MGFwQBWBJXRydDQRdTUDZBCAocPREREQAQHBJyI0JdF3FWLgRLRiEbWUJVUFTQsqViZVBSF3EtFQgNVSBUPxwWAFdASGLTuKMXbQciJCsxGjg3IUs=';
+            var attempts    = 0;
+
+            /* a typed whisper folds to its bare form: lowercase, letters only —
+               then fingerprints; "That s La Peace" would land on the same key */
+            function fold(text) {
+                return String(text == null ? '' : text)
+                    .toLowerCase().replace(/[^a-z]/g, '');
+            }
+
+            function shake() {
+                var card = input;
+                card.classList.remove('shake');
+                void card.offsetWidth;
+                card.classList.add('shake');
+            }
+
+            function showFeedback(message, type) {
+                feedback.innerHTML = message;
+                feedback.className = 'feedback ' + type + ' show';
+            }
+
+            function reconcile() {
+                var spoken = fold(input.value);
+                var digest = V.fingerprint(spoken);
+                if (!digest || digest !== ANSWER_HASH) {
+                    attempts++;
+                    showFeedback('<strong>The key does not turn.</strong> ' + attempts +
+                        (attempts === 1 ? ' attempt' : ' attempts') + ' so far.', 'error');
+                    if (attempts >= 3) hint.style.display = 'block';
+                    shake();
+                    return;
+                }
+                /* The key turned: unlock the sealed verdict. */
+                revealText.textContent = V.unlock(REVEAL_V);
+                revealWrap.style.display = 'block';
+                stamp.textContent = 'RECONCILED';
+                lead.textContent = 'The last word is spoken. The architect\u2019s ledger closes itself.';
+                showFeedback('<strong>The key turns.</strong> The case reconciles itself.', 'success');
+                input.disabled = true;
+                submit.disabled = true;
+                try { sessionStorage.setItem('sherlock-final-cleared', 'true'); } catch (e) {}
+                revealWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            submit.addEventListener('click', reconcile);
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); reconcile(); }
+            });
+            input.addEventListener('input', function () {
+                feedback.textContent = '';
+                feedback.className = 'feedback';
+            });
+        })();
+    </script>
+</body>
+</html>

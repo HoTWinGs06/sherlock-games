@@ -1,0 +1,1433 @@
+/* ===========================================================================
+   Sherlock Holmes — Case File #SH-001
+   Dark study theme: deep teal, parchment ink, brass accents, letterpress type
+   =========================================================================== */
+
+:root {
+  --bg: #0a1418;
+  --bg-deep: #070e11;
+  --ink: #e9e2cf;
+  --ink-dim: #9fb0a6;
+  --brass: #c49a55;
+  --brass-dark: #8b6f3f;
+  --brass-bright: #e3c98c;
+  --card: #112428;
+  --card-border: #2a474d;
+  --success: #8fc9a0;
+  --error: #e07a5f;
+
+  --tile-empty: #112428;
+  --tile-border: #3a585c;
+  --tile-filled: #6a888c;
+
+  /* letter feedback palette */
+  --tile-hit: #58a06a;        /* green  — right letter, right position  */
+  --tile-near: #d3b04a;       /* yellow — right letter, wrong position  */
+  --tile-miss: #565f63;       /* gray   — letter absent from the answer */
+  --tile-miss-ink: #d8dbd8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Libre Franklin", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ---- parchment texture ---- */
+.parchment-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .1;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(200,180,140,.08) 0%, transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(200,180,140,.08) 0%, transparent 45%);
+}
+
+/* ========== Main layout ========== */
+main.case-page {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 40px 20px 90px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* ========== Case header ========== */
+.case-header { text-align: center; }
+
+.address {
+  font: 600 .85rem "Libre Franklin", sans-serif;
+  letter-spacing: .35em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 10px;
+}
+
+h1 {
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(2rem, 5.5vw, 3.1rem);
+  line-height: 1.12;
+  margin: 0 0 10px;
+  text-shadow: 0 2px 0 rgba(0,0,0,.45);
+}
+
+.case-subtitle {
+  color: var(--ink-dim);
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  font-size: 1.05rem;
+  margin: 0 auto;
+  max-width: 520px;
+}
+
+/* ========== Case card (both pages) ========== */
+.case-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-left: 6px solid var(--brass);
+  border-radius: 4px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.5);
+}
+
+/* --- Door page: door left, controls right --- */
+.door-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  gap: 30px;
+  align-items: center;
+  padding: 32px 30px;
+}
+
+.door-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.door-caption {
+  color: var(--ink-dim);
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  font-size: .95rem;
+  text-align: center;
+}
+
+/* --- The door --- */
+.door {
+  position: relative;
+  width: clamp(220px, 100%, 280px);
+  height: clamp(300px, 78vw, 400px);
+  background: linear-gradient(135deg, #132a2f 0%, #0c171b 55%, #080f12 100%);
+  border: 2px solid var(--card-border);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 50px rgba(0,0,0,.7),
+    0 12px 30px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+
+.door-panel {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(196,154,85,.12);
+  background: linear-gradient(90deg, transparent 0%, rgba(196,154,85,.04) 50%, transparent 100%);
+}
+
+.keyhole {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 36px;
+  background: #04090a;
+  border: 2px solid #1b3237;
+  border-radius: 15px 15px 5px 5px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.85);
+}
+
+.keyhole::after {
+  content: "";
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 11px;
+  height: 11px;
+  background: #04090a;
+  border-radius: 50%;
+}
+
+.brass-plate {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--brass);
+  color: var(--bg);
+  padding: 9px 18px;
+  border-radius: 3px;
+  font: 700 .85rem "Libre Franklin", sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0,0,0,.4);
+}
+
+.door.unlocking { animation: doorOpen 1.4s cubic-bezier(.25,1,.35,1) forwards; }
+
+@keyframes doorOpen {
+  0%   { transform: scale(1); opacity: 1; }
+  35%  { transform: scale(.97) translateX(-5px); opacity: 1; }
+  100% { transform: scale(.04) translateX(-140px); opacity: 0; }
+}
+
+.door.shake { animation: shakeDoor .45s cubic-bezier(.36,.07,.19,.97) both; }
+
+@keyframes shakeDoor {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-12px); }
+  75% { transform: translateX(12px); }
+}
+
+/* --- Controls column --- */
+.door-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.mech-label {
+  font: 600 .72rem "Libre Franklin", sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--brass-dark);
+}
+
+.password-input {
+  width: 100%;
+  max-width: 320px;
+  padding: 15px 18px;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-size: 1.9rem;
+  letter-spacing: .55em;
+  text-align: center;
+  text-transform: uppercase;
+  background: var(--bg-deep);
+  color: var(--brass-bright);
+  border: 2px solid var(--card-border);
+  border-radius: 4px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.password-input::placeholder { color: #4a656a; letter-spacing: .3em; }
+
+.password-input:focus {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 4px rgba(196,154,85,.15);
+}
+
+/* --- Buttons --- */
+.btn {
+  font: 600 .95rem "Libre Franklin", sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  border: none;
+  padding: 13px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s, transform .1s;
+}
+
+.btn-primary {
+  background: var(--brass);
+  color: var(--bg);
+  box-shadow: 0 4px 12px rgba(196,154,85,.3);
+}
+
+.btn-primary:hover {
+  background: var(--brass-bright);
+  box-shadow: 0 6px 18px rgba(196,154,85,.45);
+}
+
+.btn-primary:active { transform: translateY(1px); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--brass-bright);
+  border: 2px solid var(--brass-dark);
+}
+
+.btn-outline:hover {
+  border-color: var(--brass);
+  background: rgba(196,154,85,.12);
+}
+
+.action-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.action-row .btn { flex: 1; min-width: 160px; text-align: center; }
+
+/* --- Watson's note --- */
+.watson-note {
+  margin: 4px 0 0;
+  padding: 12px 16px;
+  background: rgba(196,154,85,.07);
+  border-left: 3px solid var(--brass-dark);
+  border-radius: 2px;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.note-from {
+  display: block;
+  font: 600 .68rem "Libre Franklin", sans-serif;
+  font-style: normal;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--brass-dark);
+  margin-bottom: 4px;
+}
+
+/* --- Feedback --- */
+.feedback {
+  min-height: 1.5em;
+  font-size: .95rem;
+  margin: 0;
+}
+
+.feedback.error { color: var(--error); }
+.feedback.success { color: var(--success); }
+.feedback.info { color: var(--brass); }
+
+/* ========== Vault (wordle) board ========== */
+.vault-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 26px 22px;
+  align-self: center;
+  width: 100%;
+  max-width: 540px;
+}
+
+.wordle-grid { display: grid; gap: 8px; width: 100%; max-width: 420px; }
+
+.wordle-row { display: grid; gap: 8px; }
+
+.wordle-tile {
+  aspect-ratio: 1;
+  border: 2px solid var(--tile-border);
+  border-radius: 4px;
+  background: var(--tile-empty);
+  color: var(--ink);
+  font: 600 1.7rem "Libre Franklin", sans-serif;
+  text-transform: uppercase;
+  display: grid;
+  place-items: center;
+  transition: border-color .15s, background-color .25s, color .25s;
+}
+
+.wordle-tile.active { border-color: var(--brass); }
+.wordle-tile.filled { border-color: var(--tile-filled); }
+.wordle-tile.hit  { background: var(--tile-hit);  border-color: var(--tile-hit);  color: #0b1d14; }
+.wordle-tile.near { background: var(--tile-near); border-color: var(--tile-near); color: var(--bg); }
+.wordle-tile.miss { background: var(--tile-miss); border-color: var(--tile-miss); color: var(--tile-miss-ink); }
+
+.wordle-tile.flip { animation: tileFlip .36s ease forwards; }
+
+@keyframes tileFlip {
+  0%   { transform: rotateX(0deg); }
+  49%  { transform: rotateX(90deg); }
+  51%  { transform: rotateX(90deg); }
+  100% { transform: rotateX(0deg); }
+}
+
+.wordle-grid.shake { animation: shakeGrid .45s cubic-bezier(.36,.07,.19,.97) both; }
+
+@keyframes shakeGrid {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+.vault-message {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--brass);
+  font-size: .95rem;
+  text-align: center;
+}
+
+/* --- Keyboard --- */
+.vault-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.key-row { display: flex; gap: 5px; justify-content: center; }
+
+.key {
+  flex: 1;
+  max-width: 50px;
+  height: 56px;
+  border: none;
+  border-radius: 4px;
+  background: #162e33;
+  color: var(--ink);
+  font: 600 1rem "Libre Franklin", sans-serif;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .2s, transform .1s;
+}
+
+.key.key-wide { flex: 1.5; max-width: 78px; font-size: .8rem; }
+
+.key:hover { background: #2a474d; }
+.key:active { transform: translateY(1px); }
+
+.key.hit  { background: var(--tile-hit);  color: #0b1d14; }
+.key.near { background: var(--tile-near); color: #221c07; }
+.key.miss { background: #39454a; color: #8b959a; }
+
+.key:focus-visible, .btn:focus-visible, .password-input:focus-visible {
+  outline: 3px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* ========== Verdict card ========== */
+.vault-verdict {
+  align-self: center;
+  width: 100%;
+  max-width: 540px;
+  padding: 22px;
+  text-align: center;
+}
+
+.verdict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+#resultText {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* ========== Case-cleared card ========== */
+.cleared-card {
+  align-self: center;
+  width: 100%;
+  max-width: 560px;
+  padding: 34px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.cleared-stamp {
+  font: 400 1.7rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--brass);
+  padding: 6px 22px;
+  border: 2px solid var(--brass-dark);
+  border-radius: 3px;
+  letter-spacing: .08em;
+  transform: rotate(-3deg);
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  margin-bottom: 4px;
+}
+
+.cleared-lead {
+  margin: 0;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  font-size: 1.12rem;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+.cleared-text {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: .98rem;
+  line-height: 1.65;
+  max-width: 440px;
+}
+
+/* ========== Footer ========== */
+.case-footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--card-border);
+  text-align: center;
+}
+
+.case-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0;
+}
+
+/* ========== Utility ========== */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 700px) {
+  main.case-page { padding: 24px 16px 70px; gap: 24px; }
+
+  .door-layout {
+    grid-template-columns: 1fr;
+    padding: 26px 18px;
+  }
+
+  .action-row .btn { min-width: 140px; padding: 12px 18px; font-size: .85rem; }
+  .password-input { font-size: 1.6rem; }
+  .vault-board { padding: 22px 16px; }
+  .wordle-tile { font-size: 1.45rem; }
+  .key { height: 50px; font-size: .9rem; }
+}
+
+/* ========== Reduced motion ========== */
+@media (prefers-reduced-motion: reduce) {
+  .door.unlocking, .door.shake, .wordle-grid.shake, .wordle-tile.flip { animation: none; }
+}
+
+/* ===========================================================================
+   Case File #SH-002 — Guess the Location (geo-*)
+   New scoped classes only; nothing above this point was altered.
+   =========================================================================== */
+
+.geo-crumb-row { margin-bottom: 14px; }
+
+.geo-crumb {
+  font: 600 .78rem "Libre Franklin", sans-serif;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--card-border);
+  padding-bottom: 2px;
+}
+
+.geo-crumb:hover, .geo-crumb:focus-visible { color: var(--brass); border-bottom-color: var(--brass); }
+
+.geo-progress {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  color: var(--brass);
+  margin: 12px 0 0;
+}
+
+/* ---- panorama stage ---- */
+.geo-card {
+  align-self: center;
+  width: 100%;
+  max-width: 920px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.geo-pano-host { position: relative; }
+
+.geo-pano {
+  position: relative;
+  height: clamp(280px, 48vh, 460px);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-deep);
+  border: 1px solid var(--card-border);
+  touch-action: none;
+  cursor: grab;
+  outline: none;
+}
+
+.geo-pano.geo-togo { cursor: grabbing; }
+.geo-pano:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+.geo-pano.geo-panic { border-color: var(--error); }
+
+.geo-pano-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  max-width: none;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.geo-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  padding: 5px 10px;
+  border-radius: 3px;
+  background: rgba(7, 14, 17, .82);
+  border: 1px solid var(--card-border);
+  color: var(--ink-dim);
+  font: 600 .68rem/1 "Libre Franklin", sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.geo-tools {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+}
+
+.geo-tool-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  background: rgba(7, 14, 17, .82);
+  color: var(--ink);
+  border: 1px solid var(--card-border);
+  font: 700 1.05rem/1 "Libre Franklin", sans-serif;
+  cursor: pointer;
+}
+
+.geo-tool-btn:hover, .geo-tool-btn:focus-visible { border-color: var(--brass); color: var(--brass-bright); }
+.geo-tool-btn:focus-visible { outline: 2px solid var(--brass); }
+.geo-tool-reset { font-size: .8rem; letter-spacing: .05em; width: auto; padding: 0 10px; }
+
+.geo-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: var(--brass);
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+}
+
+.geo-spin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--card-border);
+  border-top-color: var(--brass);
+  animation: geoSpin 1s linear infinite;
+}
+
+@keyframes geoSpin { to { transform: rotate(360deg); } }
+
+.geo-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.geo-fallback-title {
+  font: 700 1.2rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--error);
+  margin: 0;
+}
+
+.geo-fallback-clue {
+  font: 400 1.15rem/1.6 "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  color: var(--ink);
+  max-width: 460px;
+  margin: 0;
+}
+
+.geo-fallback-note {
+  color: var(--ink-dim);
+  font-size: .85rem;
+  margin: 0;
+}
+
+.geo-fallback-retry { margin-top: 4px; }
+
+.geo-instruction {
+  color: var(--ink-dim);
+  font-size: .82rem;
+  line-height: 1.5;
+  text-align: center;
+  margin: 0;
+}
+
+/* ---- guess bar ---- */
+.geo-guessbar {
+  align-self: center;
+  width: 100%;
+  max-width: 920px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.geo-mechlabel {
+  font: 600 .72rem "Libre Franklin", sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--brass-dark);
+}
+
+.geo-guess-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.geo-guess-row > .geo-input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.geo-input {
+  padding: 12px 16px;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-size: 1.1rem;
+  background: var(--bg-deep);
+  color: var(--brass-bright);
+  border: 2px solid var(--card-border);
+  border-radius: 4px;
+  outline: none;
+  letter-spacing: .04em;
+}
+
+.geo-input::placeholder { color: #4a656a; }
+
+.geo-input:focus {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 4px rgba(196, 154, 85, .15);
+}
+
+.geo-input:disabled { opacity: .55; cursor: not-allowed; }
+
+.geo-guess-row > .btn { min-width: 150px; }
+
+.geo-scoring-note {
+  color: var(--ink-dim);
+  font-size: .84rem;
+  margin: 0;
+}
+
+.geo-scoring-note.is-dim { opacity: .5; }
+.geo-scoring-note.is-warn { color: var(--error); }
+
+.geo-shake { animation: geoShake .4s cubic-bezier(.36, .07, .19, .97) both; }
+
+@keyframes geoShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+/* ---- verdict & summary ---- */
+.geo-verdict {
+  align-self: center;
+  width: 100%;
+  max-width: 720px;
+  padding: 26px 28px;
+  text-align: center;
+}
+
+.geo-verdict.is-correct { border-left-color: var(--success); }
+.geo-verdict.is-wrong { border-left-color: var(--error); }
+
+.geo-verdict-flag {
+  font: 600 .78rem "Libre Franklin", sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+
+.geo-verdict.is-correct .geo-verdict-flag { color: var(--success); }
+.geo-verdict.is-wrong .geo-verdict-flag { color: var(--error); }
+
+.geo-verdict-title {
+  font: 400 2rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--brass);
+  margin: 0 0 6px;
+}
+
+.geo-verdict-guess {
+  color: var(--ink-dim);
+  font-size: .92rem;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  margin: 0 0 12px;
+}
+
+.geo-verdict-reveal {
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.65;
+  margin: 0 auto 14px;
+  max-width: 520px;
+}
+
+.geo-facts {
+  list-style: none;
+  padding: 0;
+  margin: 0 auto 14px;
+  max-width: 440px;
+  text-align: left;
+  color: var(--ink-dim);
+  font-size: .92rem;
+  line-height: 1.55;
+}
+
+.geo-facts li { padding: 4px 0; border-bottom: 1px dashed var(--card-border); }
+.geo-facts li:first-child { border-top: 1px dashed var(--card-border); }
+
+.geo-gps {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--brass);
+  font-size: .85rem;
+  letter-spacing: .08em;
+  margin: 0 0 6px;
+}
+
+.geo-credit {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--ink-dim);
+  font-size: .72rem;
+  margin: 0 0 16px;
+}
+
+.geo-credit a { color: var(--brass); text-decoration: none; border-bottom: 1px dashed currentColor; }
+
+/* ---- summary ---- */
+.geo-summary-total {
+  font: 400 1.6rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--brass-bright);
+  margin: 4px 0 6px;
+}
+
+.geo-summary-line {
+  color: var(--ink-dim);
+  font-size: .95rem;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  margin: 0 0 16px;
+}
+
+.geo-tally {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 7px 2px;
+  border-bottom: 1px dashed var(--card-border);
+  font-size: .95rem;
+}
+
+.geo-tally .is-hit { color: var(--success); }
+.geo-tally .is-miss { color: var(--error); }
+
+@media (max-width: 700px) {
+  .geo-card { padding: 10px 10px; }
+  .geo-pano { height: clamp(240px, 44vh, 380px); }
+  .geo-verdict { padding: 22px 18px; }
+  .geo-verdict-title { font-size: 1.6rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geo-spin, .geo-shake { animation: none; }
+}
+
+/* ===========================================================================
+   Case File #SH-003 — Chess Puzzles (ch-*)
+   New scoped classes only; nothing above this point was altered.
+   =========================================================================== */
+
+.ch-board-host {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  background: var(--bg-deep);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ch-board-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ch-board-missing {
+  min-height: 320px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: .95rem;
+}
+
+.ch-board-missing code {
+  color: var(--ink);
+}
+
+.ch-board-missing a { color: var(--brass); }
+
+.ch-board-open {
+  display: block;
+  margin-top: .65rem;
+  text-align: center;
+  font-size: .85rem;
+  color: var(--brass);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ch-board-open:hover { color: var(--ink); }
+
+.ch-board-fallback {
+  min-height: 320px;
+  display: grid;
+  place-content: center;
+  padding: 20px;
+}
+
+.ch-message {
+  min-height: 1.3em;
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: .92rem;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  margin: 0;
+  transition: color .25s;
+}
+
+.ch-message.is-ok { color: var(--success); }
+.ch-message.is-bad { color: var(--error); }
+
+.ch-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.ch-answer {
+  width: 12ch;
+  padding: 8px 10px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  text-align: center;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-size: 1.05rem;
+  letter-spacing: .06em;
+}
+
+.ch-answer:focus {
+  border-color: var(--brass);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--brass-dark);
+}
+
+.ch-answer:disabled { opacity: .55; }
+
+.ch-btn { min-width: 110px; }
+
+.ch-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 700px) {
+  .ch-board-host { max-width: 100%; }
+  .ch-btn { min-width: 96px; }
+}
+
+/* ===========================================================================
+   Case File #SH-005 — The Architect's Desk (desk-*)
+   Final game: dramatic message reveal + ancient relic clue documents.
+   =========================================================================== */
+
+.desk-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-left: 6px solid var(--brass-dark);
+  border-radius: 4px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.5);
+  padding: 0;
+}
+
+.desk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--card-border);
+  background: rgba(0,0,0,.15);
+}
+
+.desk-badge {
+  font: 600 .72rem "Libre Franklin", sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--brass-dark);
+}
+
+.desk-back {
+  font: 600 .8rem "Libre Franklin", sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  font-size: .85rem;
+}
+
+/* ---- Phase 1: architect's message ---- */
+.message-scroll {
+  min-height: clamp(240px, 45vh, 420px);  /* GROWS with the message — a fixed
+  height overflowed over the stamp above and the Begin button below */
+  display: grid;
+  place-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  position: relative;
+  background: radial-gradient(circle at center, #0e1a1e 0%, #070e11 70%);
+}
+
+.message-text {
+  font: 400 1.35rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--ink);
+  line-height: 1.9;
+  letter-spacing: .03em;
+  display: inline-block;
+  text-align: left;
+  max-width: 64ch;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.message-text.show { opacity: 1; }
+
+/* inline-block glued words together — a trailing space dies at a box end,
+   so spans stay plain inline and their trailing spaces render as gaps */
+.message-text span {
+  display: inline;
+}
+
+.message-cursor {
+  font: 700 1.35rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--brass);
+  animation: cursorBlink 1s step-end infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.message-controls {
+  margin-top: 22px;
+  text-align: center;
+}
+
+.message-hint {
+  color: var(--ink-dim);
+  font-size: .85rem;
+  font-style: italic;
+  margin: 8px 0 0;
+}
+
+/* ---- Phase 2: the desk ---- */
+.desk-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  height: 100%;
+}
+
+.relic-document {
+  background: #f5efe1;
+  color: #3a3428;
+  border: 1px solid #8b7d68;
+  border-radius: 3px;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,.55),
+    inset 0 0 40px rgba(196,154,85,.06);
+  position: relative;
+  overflow: hidden;
+  page-break-inside: avoid;
+}
+
+.relic-document::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(160,130,90,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,130,90,.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.relic-seal {
+  position: absolute;
+  top: 16px; left: 16px;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: #7a5c33;
+  border: 2px solid #5d4628;
+  color: #f5efe1;
+  font: 700 1.2rem "IM Fell English SC", serif;
+  display: grid;
+  place-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.relic-header {
+  padding: 26px 24px 10px;
+  position: relative;
+  z-index: 2;
+}
+
+.relic-title {
+  font: 400 1.9rem "IM Fell English SC", serif;
+  color: #5d4628;
+  margin: 0 0 6px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.relic-subtitle {
+  font: 600 .72rem "Libre Franklin", sans-serif;
+  color: #8b7d68;
+  margin: 0;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+}
+
+.relic-body {
+  padding: 14px 24px 22px;
+  position: relative;
+  z-index: 2;
+}
+
+.relic-text {
+  font: italic 1.15rem "IM Fell DW Pica", Georgia, serif;
+  color: #3a3428;
+  line-height: 1.85;
+  white-space: pre-wrap;
+  letter-spacing: .01em;
+}
+
+.relic-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 24px 16px;
+  border-top: 1px solid #c9bdab;
+  position: relative;
+  z-index: 2;
+  font: 600 .72rem "Libre Franklin", sans-serif;
+  color: #8b7d68;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.relic-caution {
+  font-style: italic;
+  font-size: .78rem;
+}
+
+/* ---- desk navigation ---- */
+.desk-nav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.desk-nav-btn {
+  font: 600 .85rem "Libre Franklin", sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 11px 20px;
+  font-size: .85rem;
+}
+
+.desk-nav-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.desk-progress {
+  color: var(--ink-dim);
+  font-size: .88rem;
+  font-family: "IM Fell DW Pica", Georgia, serif;
+  font-style: italic;
+  margin: 0;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .desk-header { padding: 14px 18px; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .message-scroll { padding: 28px 16px; height: auto; min-height: 300px; }
+  .message-text { font-size: 1.2rem; }
+  .desk-surface { padding: 16px; gap: 14px; }
+  .relic-text { font-size: 1.05rem; }
+}
+
+/* ===========================================================================
+   Case File #SH-005 — The Notch's Mystery (inline on case-cleared.html)
+   =========================================================================== */
+
+.notch-stage {
+  margin-top: 22px;
+  border-top: 1px dashed var(--card-border);
+  padding-top: 22px;
+}
+
+.notch-msg-label {
+  font: 600 .72rem "Libre Franklin", sans-serif;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--brass-dark);
+  margin-bottom: 10px;
+}
+
+.message-text span {
+  transition: opacity .25s ease;
+}
+
+.msg-gap {
+  display: block;
+  height: .6em;
+}
+
+/* ---- the CSS-drawn desk ---- */
+.desk-visual {
+  position: relative;
+  height: 150px;
+  margin: 10px 0 14px;
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+  background:
+    radial-gradient(90px 55px at 24% 22%, rgba(227,201,140,.18), transparent 70%),
+    linear-gradient(#0d1a1e, #0a1418);
+}
+
+.desk-lamp {
+  position: absolute;
+  left: calc(24% - 14px);
+  top: 10%;
+  width: 28px;
+  height: 20px;
+  border-radius: 50% 50% 6px 6px;
+  background: radial-gradient(circle at 50% 75%, #e3c98c, #c49a55 55%, #6a5330);
+  box-shadow: 0 0 18px rgba(227,201,140,.35);
+}
+
+.desk-top {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 33%;
+  height: 18%;
+  background: linear-gradient(#7a5a33, #5d4526);
+  border-radius: 4px;
+  box-shadow: 0 8px 16px rgba(0,0,0,.5);
+}
+
+.desk-leg {
+  position: absolute;
+  top: 51%;
+  width: 7px;
+  height: 46%;
+  background: linear-gradient(#5d4526, #3d2f19);
+  border-radius: 0 0 3px 3px;
+}
+
+.desk-leg-l { left: 16%; }
+.desk-leg-r { right: 16%; }
+
+.desk-paper {
+  position: absolute;
+  width: 36px;
+  height: 22px;
+  background: #f0e8d5;
+  border: 1px solid #8b7d68;
+  box-shadow: 0 2px 5px rgba(0,0,0,.45);
+  opacity: .85;
+}
+
+.desk-paper-1 { left: 40%; top: 30%; transform: rotate(-7deg); }
+.desk-paper-2 { left: 53%; top: 26%; transform: rotate(5deg); }
+.desk-paper-3 { left: 64%; top: 31%; transform: rotate(-3deg); }
+
+.desk-note {
+  color: var(--ink-dim);
+  font: italic .98rem "IM Fell DW Pica", Georgia, serif;
+  margin: 0 0 14px;
+  white-space: pre-wrap;
+}
+
+/* ---- recovered files stack on the desk ---- */
+.relic-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.notch-readrow {
+  text-align: center;
+  padding: 8px 0 2px;
+}
+
+/* ---- "next file unlocked" band ---- */
+.desk-unlock {
+  display: none;
+  text-align: center;
+  margin: 10px 0 6px;
+}
+
+.desk-unlock.show { display: block; }
+
+.desk-unlock-text {
+  display: inline-block;
+  font: 700 .95rem "Libre Franklin", sans-serif;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--brass-bright);
+  border: 1px solid var(--brass-dark);
+  border-radius: 999px;
+  padding: 10px 28px;
+  background: rgba(196,154,85,.08);
+  box-shadow: 0 0 24px rgba(196,154,85,.25);
+  animation: unlockPulse .5s ease;
+}
+
+@keyframes unlockPulse {
+  from { transform: scale(.85); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.notch-exitrow {
+  margin-top: 18px;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .desk-visual { height: 120px; }
+}
+
+/* ===========================================================================
+   Case File #SH-005 — Final Reconciliation (reconciliation.html)
+   =========================================================================== */
+
+.final-riddle {
+  text-align: center;
+  margin: 18px 0 6px;
+}
+
+.final-question {
+  font: 400 1.7rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--brass-bright);
+  line-height: 1.6;
+  margin: 0 0 10px;
+  letter-spacing: .02em;
+}
+
+.final-sub {
+  font: 600 .78rem "Libre Franklin", sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0;
+}
+
+.final-hint {
+  text-align: center;
+  font: italic .92rem "IM Fell DW Pica", Georgia, serif;
+  color: var(--ink-dim);
+  margin: 6px 0 0;
+}
+
+/* the same shudder the study door gives */
+#finalInput.shake {
+  animation: shakeDoor .45s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #finalInput.shake { animation: none; }
+}

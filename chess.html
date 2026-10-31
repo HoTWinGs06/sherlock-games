@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chess Puzzles — 221B Baker Street</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parchment-overlay" aria-hidden="true"></div>
+
+    <main class="case-page">
+        <!-- ===== Case header ===== -->
+        <header class="case-header">
+            <div class="geo-crumb-row">
+                <a class="geo-crumb" href="case-cleared.html">&larr; The Study &middot; 221B Baker Street</a>
+            </div>
+            <div class="address">Case File #SH-003 &middot; The Chess Board</div>
+            <h1>Chess Puzzles</h1>
+            <p class="case-subtitle">Each position holds one best move &mdash; write it.</p>
+            <p class="geo-progress" id="chProgress" aria-live="polite"></p>
+        </header>
+
+        <!-- ===== Board stage ===== -->
+        <section class="case-card geo-card" id="chBoardCard" aria-label="Chess board stage">
+            <div class="ch-board-host" id="chBoard"></div>
+            <p class="ch-message" id="chMsg" aria-live="polite"></p>
+            <div class="ch-controls" id="chControls">
+                <input type="text" class="ch-answer" id="chAnswer" maxlength="10" autocomplete="off"
+                       spellcheck="false" placeholder="e.g. Qf5" aria-label="Your move, in standard notation">
+                <button type="button" class="btn btn-primary ch-btn" id="chSubmit">Submit move</button>
+                <button type="button" class="btn btn-outline ch-btn" id="chHint">Hint</button>
+            </div>
+            <p class="geo-instruction">Study the position, then write the one move that wins &mdash; standard notation, as in <em>Qf5</em> or <em>Qxb1</em>. A legal move that isn&rsquo;t the line earns no progress &mdash; the position keeps still.</p>
+        </section>
+
+        <!-- ===== Verdict (filled after each solved puzzle) ===== -->
+        <section class="case-card geo-verdict" id="chVerdict" hidden></section>
+
+        <!-- ===== Summary (filled when all puzzles are solved) ===== -->
+        <section class="case-card geo-summary" id="chSummary" hidden></section>
+
+        <footer class="case-footer">
+            <p class="case-note">Sherlock Holmes Consulting &mdash; Case #SH-003 &middot; Puzzles: Lichess puzzle database (CC0) &middot; Board photographs: local captures</p>
+        </footer>
+    </main>
+
+    <script src="game.js"></script>
+    <script src="puzzles.js"></script>
+    <script src="chess-state.js"></script>
+    <script src="vault.js"></script>
+    <script>
+        /* Watchdog (classic script — always runs). chess-puzzle.js fills the
+           status line synchronously at load; if it is still empty after the
+           page settles, say why instead of leaving a dead page. */
+        window.addEventListener('load', function () {
+            window.setTimeout(function () {
+                var m = document.getElementById('chMsg');
+                if (!m || m.textContent) return;
+                m.className = 'ch-message is-bad';
+                m.textContent = 'The case script failed to start \u2014 chess-puzzle.js could not run. '
+                    + 'Press F12, open the Console, and read the first red error.';
+            }, 500);
+        });
+    </script>
+    <script src="chess-puzzle.js"></script>
+</body>
+</html>
