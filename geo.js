@@ -508,6 +508,13 @@
     state.score = state.results.reduce(function (acc, r) { return acc + (r ? r.pts : 0); }, 0);
     state.submitted = true;
     state.lastGuess = guess;
+    /* server-side points: geo answers are re-checked THERE with the same
+       fuzzy rules, once per scene per player */
+    if (correct) {
+        try { if (window.SherlockPoints && window.SherlockPoints.enabled) {
+            window.SherlockPoints.submit('sh002-geo-' + loc.id, guess);
+        } } catch (e) {}
+    }
     saveState();
     renderScene();
     ui.verdict.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

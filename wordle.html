@@ -43,6 +43,9 @@
         </footer>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="points.js"></script>
     <script src="game.js"></script>
     <script>
         /* =====================================================================
@@ -287,6 +290,10 @@
                     returnLinkEl.href = `${CONFIG.RETURN_URL}?solved=1`; // word stays out of the URL
                     returnLinkEl.textContent = 'Return with a Different Word';
                     replayBtnEl.hidden = true;   // a solved vault needs no replay
+                    // server-side points: the vault word re-verified THERE, once per player
+                    try { if (window.SherlockPoints && window.SherlockPoints.enabled) {
+                        window.SherlockPoints.submit('sh001-wordle', WORD);
+                    } } catch (e) {}
                 } else {
                     sessionStorage.removeItem('sh-vault-word');
                     sessionStorage.removeItem('sh-vault-solved');

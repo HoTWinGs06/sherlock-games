@@ -26,6 +26,13 @@
             <p class="case-subtitle" id="subtitleLine">The brass handle turns. The mechanism releases with a soft clunk.</p>
         </header>
 
+        <!-- ===== The Ledger (points, server-verified) ===== -->
+        <section class="case-card cleared-card" aria-label="The ledger">
+            <div class="cleared-stamp ledger-stamp" id="ledgerStamp">The Ledger</div>
+            <p class="cleared-lead" id="ledgerLine">Points stand at &mdash;</p>
+            <p class="cleared-text" id="ledgerSolved"></p>
+        </section>
+
         <!-- ===== Cleared card ===== -->
         <section class="case-card cleared-card">
             <div class="cleared-stamp">Door Unlocked</div>
@@ -88,6 +95,9 @@
         </footer>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="points.js"></script>
     <script src="game.js"></script>
     <script>
         // Personalise the subtitle with the password the player used
@@ -95,6 +105,19 @@
         if (used) {
             document.getElementById('subtitleLine').textContent =
                 `Password accepted: "${used}". The mechanism releases with a soft clunk.`;
+        }
+
+        // The ledger: server-verified points, once the backend is reachable
+        if (window.SherlockPoints && window.SherlockPoints.enabled) {
+            SherlockPoints.refresh().then(function (r) {
+                if (!r || r.offline) return;
+                document.getElementById('ledgerLine').textContent =
+                    'Points stand at ' + r.total + ' of 360. Tier: ' + r.tier + '.';
+                var n = (r.solved || []).length;
+                document.getElementById('ledgerSolved').textContent = n
+                    ? n + ' of 9 files already reconciled in the ledger.'
+                    : 'No files reconciled yet \u2014 the cases above are all open.';
+            }).catch(function () {});
         }
     </script>
 </body>

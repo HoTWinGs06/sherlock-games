@@ -85,8 +85,12 @@
       return;
     }
     if (isCorrectMove(raw)) {
-      solveComplete();
-      return;
+        /* server-side points: the move re-verified THERE by the same digest */
+        try { if (window.SherlockPoints && window.SherlockPoints.enabled) {
+            window.SherlockPoints.submit('sh003-chess-' + current.id.slice(5), raw);
+        } } catch (e) {}
+        solveComplete();
+        return;
     }
     State.recordAttempt(state, current.id);
     State.save(state);

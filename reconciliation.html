@@ -86,6 +86,9 @@
         </footer>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="points.js"></script>
     <script src="vault.js"></script>
     <script>
         /* ================================================================
@@ -151,6 +154,10 @@
                 input.disabled = true;
                 submit.disabled = true;
                 try { sessionStorage.setItem('sherlock-final-cleared', 'true'); } catch (e) {}
+                /* server-side points: the spoken key re-verified THERE */
+                try { if (window.SherlockPoints && window.SherlockPoints.enabled) {
+                    window.SherlockPoints.submit('sh005-final', spoken);
+                } } catch (e) {}
                 revealWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 

@@ -1431,3 +1431,12 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   #finalInput.shake { animation: none; }
 }
+
+/* ===========================================================================
+   The Ledger — collective points readout (case-cleared.html)
+   =========================================================================== */
+
+.ledger-stamp {
+  background: linear-gradient(180deg, #7a5a1e, #4d3a15);
+  border: 1px solid var(--brass, #b98a3c);
+}

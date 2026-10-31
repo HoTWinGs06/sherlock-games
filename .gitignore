@@ -7,4 +7,7 @@ Desktop.ini
 *.log
 *.tmp
 
+# Supabase seed — plaintext reveals, lives only on the DB side
+supabase/seed-answers.sql
+
 # (keep everything else — clue txt files and lib/ are part of the site)
