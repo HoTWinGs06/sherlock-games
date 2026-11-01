@@ -54,6 +54,9 @@ Deno.serve(async (req) => {
     if (adminErr || !adminRow || adminRow.secret_key !== secretKey) {
       return json({ ok: false, error: 'not an admin' }, 403);
     }
+    const { data: adminList } = await sr.from('admins').select('id');
+    const adminIdSet = new Set((adminList ?? []).map((a: any) => a.id));
+
     const { data: profiles, error: profilesErr } = await sr
       .from('profiles')
       .select('id, username, display_name, total_points, tier')
@@ -61,11 +64,13 @@ Deno.serve(async (req) => {
     if (profilesErr) {
       return json({ ok: false, error: 'query failed: ' + profilesErr.message }, 500);
     }
-    const cleanProfiles = (profiles ?? []).map((p: any) => ({
-      username: p.username || p.display_name || 'Anonymous',
-      total_points: p.total_points ?? 0,
-      tier: p.tier || 'Apprentice',
-    }));
+    const cleanProfiles = (profiles ?? [])
+      .filter((p: any) => !adminIdSet.has(p.id) && (p.username || p.display_name))
+      .map((p: any) => ({
+        username: p.username || p.display_name,
+        total_points: p.total_points ?? 0,
+        tier: p.tier || 'Apprentice',
+      }));
     return json({
       ok: true,
       leaderboard: cleanProfiles,

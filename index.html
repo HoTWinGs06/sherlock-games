@@ -167,6 +167,15 @@
 
                     // Store credentials and enter the game immediately
                     try { localStorage.setItem('sh-username', name); } catch (e) {}
+                    if (data && data.user) {
+                        try {
+                            await supabase.from('profiles').upsert({
+                                id: data.user.id,
+                                username: name,
+                                display_name: name
+                            }, { onConflict: 'id' });
+                        } catch (ignore) {}
+                    }
                     sessionStorage.setItem('sherlock-door-cleared', 'true');
                     alert('Account created! Welcome, ' + name + '!\nEntering Baker Street Study...');
                     window.location.href = 'case-cleared.html';
@@ -209,6 +218,15 @@
                         throw new Error('Login failed: no active session');
                     }
                     try { localStorage.setItem('sh-username', name); } catch (e) {}
+                    if (data && data.user) {
+                        try {
+                            await supabase.from('profiles').upsert({
+                                id: data.user.id,
+                                username: name,
+                                display_name: name
+                            }, { onConflict: 'id' });
+                        } catch (ignore) {}
+                    }
                     sessionStorage.setItem('sherlock-door-cleared', 'true');
                     alert('Welcome back, ' + name + '!');
                     window.location.href = 'case-cleared.html';

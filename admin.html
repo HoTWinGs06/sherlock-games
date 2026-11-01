@@ -54,12 +54,12 @@
     </div>
 
     <section class="admin-leaderboard" id="leaderboard" hidden>
-        <h1>Registered players</h1>
+        <h1>Registered players (<span id="userCount">0</span>)</h1>
         <p class="admin-note">Order reflects total collective points, highest first.</p>
 
         <div id="status2" class="status">Loading leaderboard&hellip;</div>
 
-        <table class="leaderboard-table">
+        <table class="leaderboard-table" id="lbTable">
             <thead>
                 <tr>
                     <th>#</th>
@@ -71,7 +71,7 @@
             <tbody id="lbBody"></tbody>
         </table>
 
-        <p class="empty" id="lbEmpty">No registered players yet.</p>
+        <p class="empty" id="lbEmpty">0 users in the leaderboard</p>
 
         <div class="action-row" style="margin-top:24px;">
             <a href="case-cleared.html" class="btn btn-outline">Back to the Study</a>
@@ -161,16 +161,27 @@
                 }
                 var rows = data.leaderboard || [];
                 lbBody.innerHTML = '';
-                lbEmpty.hidden = rows.length > 0;
-                rows.forEach(function (row, i) {
-                    var tr = document.createElement('tr');
-                    tr.innerHTML =
-                        '<td>' + (i + 1) + '</td>' +
-                        '<td>' + escapeHtml(row.username || 'Unknown') + '</td>' +
-                        '<td>' + (row.total_points || 0) + '</td>' +
-                        '<td>' + escapeHtml(row.tier || 'Apprentice') + '</td>';
-                    lbBody.appendChild(tr);
-                });
+                var userCountEl = document.getElementById('userCount');
+                if (userCountEl) userCountEl.textContent = rows.length;
+
+                var lbTable = document.getElementById('lbTable');
+                if (rows.length === 0) {
+                    lbEmpty.textContent = '0 users in the leaderboard';
+                    lbEmpty.hidden = false;
+                    if (lbTable) lbTable.hidden = true;
+                } else {
+                    lbEmpty.hidden = true;
+                    if (lbTable) lbTable.hidden = false;
+                    rows.forEach(function (row, i) {
+                        var tr = document.createElement('tr');
+                        tr.innerHTML =
+                            '<td>' + (i + 1) + '</td>' +
+                            '<td>' + escapeHtml(row.username || 'Unknown') + '</td>' +
+                            '<td>' + (row.total_points || 0) + '</td>' +
+                            '<td>' + escapeHtml(row.tier || 'Apprentice') + '</td>';
+                        lbBody.appendChild(tr);
+                    });
+                }
                 status2.textContent = '';
                 leaderboardEl.hidden = false;
                 logPanel.hidden = true;
@@ -236,13 +247,18 @@
                     // Fallback to direct client query
                     var p = await supabase.from('profiles').select('id, username, display_name, total_points, tier').order('total_points', { ascending: false });
                     if (p.data) {
-                        var list = p.data.map(function (row) {
-                            return {
-                                username: row.username || row.display_name || 'Anonymous',
-                                total_points: row.total_points || 0,
-                                tier: row.tier || 'Apprentice'
-                            };
-                        });
+                        var adminId = session.user.id;
+                        var list = p.data
+                            .filter(function (row) {
+                                return row.id !== adminId && (row.username || row.display_name);
+                            })
+                            .map(function (row) {
+                                return {
+                                    username: row.username || row.display_name,
+                                    total_points: row.total_points || 0,
+                                    tier: row.tier || 'Apprentice'
+                                };
+                            });
                         renderLeaderboard({ ok: true, leaderboard: list });
                     } else {
                         renderLeaderboard(data);
