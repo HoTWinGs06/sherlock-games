@@ -55,8 +55,8 @@
 
                 <form id="adminLoginForm">
                     <div class="form-field">
-                        <label for="adminName">Admin Email or Name</label>
-                        <input type="text" id="adminName" placeholder="nishantyadawad007@gmail.com" autocomplete="username" value="nishantyadawad007@gmail.com">
+                        <label for="adminName">Admin Email</label>
+                        <input type="email" id="adminName" placeholder="Enter admin email" autocomplete="email">
                     </div>
                     <div class="form-field">
                         <label for="adminPassword">Password</label>
@@ -223,14 +223,12 @@
             // Admin login
             adminLoginForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                var adminInput = adminName.value.trim();
+                var adminEmail = adminName.value.trim();
                 var password = adminPassword.value;
-                if (!adminInput || !password) {
-                    alert('Please enter both admin email/name and password.');
+                if (!adminEmail || !password) {
+                    alert('Please enter both admin email and password.');
                     return;
                 }
-
-                var adminEmail = adminInput.includes('@') ? adminInput : 'nishantyadawad007@gmail.com';
                 var submitBtn = adminLoginForm.querySelector('button[type="submit"]');
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Signing in...';
