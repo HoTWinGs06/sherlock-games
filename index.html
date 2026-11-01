@@ -29,7 +29,12 @@
                     </div>
                     <div class="form-field">
                         <label for="playerPassword">Password</label>
-                        <input type="password" id="playerPassword" placeholder="Enter password" autocomplete="current-password">
+                        <div class="input-group">
+                            <input type="password" id="playerPassword" placeholder="Enter password" autocomplete="current-password">
+                            <button type="button" id="playerPasswordToggle" class="toggle-btn" aria-label="Toggle password visibility">
+                                <span class="eye-icon">👁</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="action-row">
                         <button type="button" class="btn btn-outline" id="playerSignUpBtn">Create Account</button>
@@ -52,7 +57,12 @@
                     </div>
                     <div class="form-field">
                         <label for="adminPassword">Password</label>
-                        <input type="password" id="adminPassword" placeholder="Enter password" autocomplete="current-password">
+                        <div class="input-group">
+                            <input type="password" id="adminPassword" placeholder="Enter password" autocomplete="current-password">
+                            <button type="button" id="adminPasswordToggle" class="toggle-btn" aria-label="Toggle password visibility">
+                                <span class="eye-icon">👁</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="action-row">
                         <button type="submit" class="btn btn-primary">Sign In</button>
@@ -181,6 +191,23 @@
                 } catch (err) {
                     alert('Sign in failed: ' + (err.message || 'unknown error'));
                 }
+            });
+
+            // Password toggle (show/hide)
+            document.getElementById('playerPasswordToggle').addEventListener('click', function () {
+                var input = document.getElementById('playerPassword');
+                var type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', type);
+                this.querySelector('.eye-icon').textContent = type === 'password' ? '👁' : '👁‍🗨';
+                this.classList.toggle('active');
+            });
+
+            document.getElementById('adminPasswordToggle').addEventListener('click', function () {
+                var input = document.getElementById('adminPassword');
+                var type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', type);
+                this.querySelector('.eye-icon').textContent = type === 'password' ? '👁' : '👁‍🗨';
+                this.classList.toggle('active');
             });
         })();
     </script>

@@ -1693,6 +1693,44 @@ h1 {
   border-color: var(--brass);
 }
 
+.input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-group input {
+  flex: 1;
+  padding-right: 40px;
+}
+
+.toggle-btn {
+  position: absolute;
+  right: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 8px;
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .2s;
+}
+
+.toggle-btn:hover {
+  color: var(--ink);
+}
+
+.toggle-btn.active {
+  color: var(--success);
+}
+
+.eye-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;
