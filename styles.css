@@ -1795,6 +1795,39 @@ h1 {
   background: var(--brass);
   color: var(--bg);
 }
-  background: linear-gradient(180deg, #7a5a1e, #4d3a15);
-  border: 1px solid var(--brass, #b98a3c);
+
+/* Tabs for Player vs Admin login */
+.login-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 0 auto 24px;
+  max-width: 400px;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 12px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--ink-dim);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.tab-btn:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  color: var(--bg);
+  background: var(--brass);
+  border-color: var(--brass);
 }

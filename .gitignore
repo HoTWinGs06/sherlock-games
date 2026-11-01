@@ -14,3 +14,5 @@ supabase/seed-answers.sql
 # (keep everything else — clue txt files and lib/ are part of the site)
 
 .vercel
+temp_key.txt
+*.bak

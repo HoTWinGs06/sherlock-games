@@ -5,8 +5,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-secret-key',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 function json(body, status = 200) {
@@ -25,51 +25,58 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
+  const url = new URL(req.url);
+  const isLeaderboard = req.method === 'GET' && (
+    url.pathname.endsWith('/leaderboard') ||
+    url.pathname.includes('leaderboard') ||
+    url.searchParams.get('action') === 'leaderboard'
+  );
+
+  const isLogs = req.method === 'GET' && (
+    url.pathname.endsWith('/logs') ||
+    url.pathname.includes('logs') ||
+    url.searchParams.get('action') === 'logs'
+  );
+
   /* ---- leaderboard (admin) ---- */
-  if (req.method === 'GET') {
-    const url = new URL(req.url);
-    if (url.pathname === '/leaderboard') {
-      const authHeader = req.headers.get('Authorization') ?? '';
-      const secretKey = req.headers.get('X-Secret-Key') ?? '';
-      const userClient = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-        { global: { headers: { Authorization: authHeader } } },
-      );
-      const { data: userData, error: userErr } = await userClient.auth.getUser();
-      if (userErr || !userData?.user) {
-        return json({ ok: false, error: 'unauthorized' }, 401);
-      }
-      const userId = userData.user.id;
-      const { data: adminRow, error: adminErr } = await sr
-        .from('admins').select('id, secret_key').eq('id', userId).maybeSingle();
-      if (adminErr || !adminRow || adminRow.secret_key !== secretKey) {
-        return json({ ok: false, error: 'not an admin' }, 403);
-      }
-      const { data: profiles, error: profilesErr } = await sr
-        .from('profiles')
-        .select('id, username, total_points, tier')
-        .order('total_points', { ascending: false })
-        .neq('username', null);
-      if (profilesErr) {
-        return json({ ok: false, error: 'query failed' }, 500);
-      }
-      return json({
-        ok: true,
-        leaderboard: (profiles as Array<{ username: string; total_points: number; tier: string }>) ?? [],
-      });
+  if (isLeaderboard) {
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const secretKey = req.headers.get('X-Secret-Key') ?? '';
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+
+    const { data: userData, error: userErr } = await sr.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      return json({ ok: false, error: 'unauthorized' }, 401);
     }
+    const userId = userData.user.id;
+    const { data: adminRow, error: adminErr } = await sr
+      .from('admins').select('id, secret_key').eq('id', userId).maybeSingle();
+    if (adminErr || !adminRow || adminRow.secret_key !== secretKey) {
+      return json({ ok: false, error: 'not an admin' }, 403);
+    }
+    const { data: profiles, error: profilesErr } = await sr
+      .from('profiles')
+      .select('id, username, display_name, total_points, tier')
+      .order('total_points', { ascending: false });
+    if (profilesErr) {
+      return json({ ok: false, error: 'query failed: ' + profilesErr.message }, 500);
+    }
+    const cleanProfiles = (profiles ?? []).map((p: any) => ({
+      username: p.username || p.display_name || 'Anonymous',
+      total_points: p.total_points ?? 0,
+      tier: p.tier || 'Apprentice',
+    }));
+    return json({
+      ok: true,
+      leaderboard: cleanProfiles,
+    });
   }
 
   /* ---- player logs (admin) ---- */
-  if (req.method === 'GET' && new URL(req.url).pathname === '/logs') {
+  if (isLogs) {
     const authHeader = req.headers.get('Authorization') ?? '';
-    const userClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const { data: userData, error: userErr } = await sr.auth.getUser(token);
     if (userErr || !userData?.user) {
       return json({ ok: false, error: 'unauthorized' }, 401);
     }
@@ -85,7 +92,7 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(50);
     if (logsErr) {
-      return json({ ok: false, error: 'query failed' }, 500);
+      return json({ ok: false, error: 'query failed: ' + logsErr.message }, 500);
     }
     return json({ ok: true, logs: logs ?? [] });
   }

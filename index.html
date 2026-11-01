@@ -15,22 +15,27 @@
     <main class="login-page">
         <div class="parchment">
             <h1>🕵️ Sherlock Games</h1>
-            <p class="subtitle">Choose your login type</p>
+            <p class="subtitle">Enter Baker Street</p>
+
+            <div class="login-tabs">
+                <button type="button" class="tab-btn active" id="tabPlayer">Player Access</button>
+                <button type="button" class="tab-btn" id="tabAdmin">Admin Access</button>
+            </div>
 
             <!-- Player Login -->
             <section class="login-card" id="player-section">
-                <h2>Player Login</h2>
-                <p class="card-sub">Sign up with your username to play puzzles.</p>
+                <h2>Player Access</h2>
+                <p class="card-sub">Choose a username to play and save your progress.</p>
 
                 <form id="playerLoginForm">
                     <div class="form-field">
                         <label for="playerName">Username</label>
-                        <input type="text" id="playerName" placeholder="e.g. john.doe" maxlength="40" autocomplete="name">
+                        <input type="text" id="playerName" placeholder="e.g. john.watson" maxlength="40" autocomplete="username">
                     </div>
                     <div class="form-field">
                         <label for="playerPassword">Password</label>
                         <div class="input-group">
-                            <input type="password" id="playerPassword" placeholder="Enter password" autocomplete="current-password">
+                            <input type="password" id="playerPassword" placeholder="Minimum 6 characters" autocomplete="current-password">
                             <button type="button" id="playerPasswordToggle" class="toggle-btn" aria-label="Toggle password visibility">
                                 <span class="eye-icon">👁</span>
                             </button>
@@ -38,40 +43,38 @@
                     </div>
                     <div class="action-row">
                         <button type="button" class="btn btn-outline" id="playerSignUpBtn">Create Account</button>
-                        <button type="submit" class="btn btn-primary">Login</button>
+                        <button type="submit" class="btn btn-primary" id="playerLoginBtn">Login</button>
                     </div>
                 </form>
             </section>
 
-            <div class="divider">OR</div>
-
             <!-- Admin Login -->
             <section class="login-card" id="admin-section" style="display:none;">
-                <h2>Admin Login</h2>
+                <h2>Admin Ledger</h2>
                 <p class="card-sub">Access player leaderboard and activity logs.</p>
 
                 <form id="adminLoginForm">
                     <div class="form-field">
-                        <label for="adminName">Admin Name</label>
-                        <input type="text" id="adminName" placeholder="e.g. nishant" autocomplete="off">
+                        <label for="adminName">Admin Email or Name</label>
+                        <input type="text" id="adminName" placeholder="nishantyadawad007@gmail.com" autocomplete="username" value="nishantyadawad007@gmail.com">
                     </div>
                     <div class="form-field">
                         <label for="adminPassword">Password</label>
                         <div class="input-group">
-                            <input type="password" id="adminPassword" placeholder="Enter password" autocomplete="current-password">
+                            <input type="password" id="adminPassword" placeholder="Enter admin password" autocomplete="current-password">
                             <button type="button" id="adminPasswordToggle" class="toggle-btn" aria-label="Toggle password visibility">
                                 <span class="eye-icon">👁</span>
                             </button>
                         </div>
                     </div>
                     <div class="action-row">
-                        <button type="submit" class="btn btn-primary">Sign In</button>
+                        <button type="submit" class="btn btn-primary">Sign In as Admin</button>
                     </div>
                 </form>
             </section>
 
-            <div class="action-row">
-                <a href="index.html" class="btn btn-outline">← Back to the Study</a>
+            <div class="action-row" style="margin-top: 24px;">
+                <a href="case-cleared.html" class="btn btn-outline">← Back to the Study</a>
             </div>
         </div>
     </main>
@@ -92,55 +95,86 @@
                 ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
                 : null;
 
+            var tabPlayer = document.getElementById('tabPlayer');
+            var tabAdmin = document.getElementById('tabAdmin');
+            var playerSection = document.getElementById('player-section');
+            var adminSection = document.getElementById('admin-section');
+
             var playerName = document.getElementById('playerName');
             var playerPassword = document.getElementById('playerPassword');
             var playerSignUpBtn = document.getElementById('playerSignUpBtn');
+            var playerLoginBtn = document.getElementById('playerLoginBtn');
             var playerLoginForm = document.getElementById('playerLoginForm');
             var adminName = document.getElementById('adminName');
             var adminPassword = document.getElementById('adminPassword');
             var adminLoginForm = document.getElementById('adminLoginForm');
-            var playerSection = document.getElementById('player-section');
-            var adminSection = document.getElementById('admin-section');
 
-            // Toggle between player and admin sections
-            document.querySelectorAll('.login-card').forEach(function (card) {
-                card.addEventListener('click', function (e) {
-                    if (e.target.tagName === 'H2') {
-                        var isPlayer = card.id === 'player-section';
-                        adminSection.style.display = isPlayer ? 'none' : 'block';
-                        playerSection.style.display = isPlayer ? 'block' : 'none';
-                    }
-                });
+            // Tab switching
+            tabPlayer.addEventListener('click', function () {
+                tabPlayer.classList.add('active');
+                tabAdmin.classList.remove('active');
+                playerSection.style.display = 'block';
+                adminSection.style.display = 'none';
+            });
+
+            tabAdmin.addEventListener('click', function () {
+                tabAdmin.classList.add('active');
+                tabPlayer.classList.remove('active');
+                adminSection.style.display = 'block';
+                playerSection.style.display = 'none';
             });
 
             // Player sign up
             playerSignUpBtn.addEventListener('click', async function () {
                 var name = playerName.value.trim();
+                var password = playerPassword.value;
                 if (!name) {
                     alert('Please enter a username.');
+                    playerName.focus();
                     return;
                 }
                 if (!/^[a-zA-Z0-9._-]{3,40}$/.test(name)) {
                     alert('Username must be 3-40 characters (letters, numbers, dots, hyphens, underscores).');
+                    playerName.focus();
                     return;
                 }
-                var email = name.replace(/\s+/g, '.') + '@player.local';
+                if (!password || password.length < 6) {
+                    alert('Password must be at least 6 characters.');
+                    playerPassword.focus();
+                    return;
+                }
+
+                var email = name.toLowerCase().replace(/\s+/g, '.') + '@player.local';
+                playerSignUpBtn.disabled = true;
+                playerSignUpBtn.textContent = 'Creating...';
+
                 try {
                     var { data, error } = await supabase.auth.signUp({
                         email: email,
-                        password: playerPassword.value,
+                        password: password,
                         options: {
-                            data: { display_name: name },
-                            email_confirm: true
+                            data: { display_name: name }
                         }
                     });
                     if (error) {
-                        throw error;
+                        if (error.message && error.message.toLowerCase().includes('already registered')) {
+                            alert('Username "' + name + '" is already registered! Please click "Login" with your password, or choose another username.');
+                        } else {
+                            throw error;
+                        }
+                        return;
                     }
-                    alert('Account created! You can now sign in.');
-                    playerPassword.value = '';
+
+                    // Store credentials and enter the game immediately
+                    try { localStorage.setItem('sh-username', name); } catch (e) {}
+                    sessionStorage.setItem('sherlock-door-cleared', 'true');
+                    alert('Account created! Welcome, ' + name + '!\nEntering Baker Street Study...');
+                    window.location.href = 'case-cleared.html';
                 } catch (err) {
                     alert('Sign up failed: ' + (err.message || 'unknown error'));
+                } finally {
+                    playerSignUpBtn.disabled = false;
+                    playerSignUpBtn.textContent = 'Create Account';
                 }
             });
 
@@ -153,44 +187,74 @@
                     alert('Please enter both username and password.');
                     return;
                 }
+
+                var email = name.toLowerCase().replace(/\s+/g, '.') + '@player.local';
+                playerLoginBtn.disabled = true;
+                playerLoginBtn.textContent = 'Logging in...';
+
                 try {
                     var { data, error } = await supabase.auth.signInWithPassword({
-                        email: name.replace(/\s+/g, '.') + '@player.local',
+                        email: email,
                         password: password,
                     });
-                    if (error || !data.session) {
-                        throw error || new Error('Login failed');
+                    if (error) {
+                        if (error.message === 'Invalid login credentials') {
+                            alert('Login failed: Invalid login credentials.\n\n• If you are a new player, click "Create Account" first to register your username.\n• If you already registered, please check your username and password.');
+                        } else {
+                            alert('Login failed: ' + (error.message || 'unknown error'));
+                        }
+                        return;
                     }
-                    alert('Welcome, ' + name + '! You can now play puzzles.');
-                    playerSection.style.display = 'none';
-                    window.location.href = 'index.html';
+                    if (!data.session) {
+                        throw new Error('Login failed: no active session');
+                    }
+                    try { localStorage.setItem('sh-username', name); } catch (e) {}
+                    sessionStorage.setItem('sherlock-door-cleared', 'true');
+                    alert('Welcome back, ' + name + '!');
+                    window.location.href = 'case-cleared.html';
                 } catch (err) {
                     alert('Login failed: ' + (err.message || 'unknown error'));
+                } finally {
+                    playerLoginBtn.disabled = false;
+                    playerLoginBtn.textContent = 'Login';
                 }
             });
 
             // Admin login
             adminLoginForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                var adminNameVal = adminName.value.trim();
+                var adminInput = adminName.value.trim();
                 var password = adminPassword.value;
-                if (!adminNameVal || !password) {
-                    alert('Please enter both admin name and password.');
+                if (!adminInput || !password) {
+                    alert('Please enter both admin email/name and password.');
                     return;
                 }
-                adminEmail = 'nishantyadawad007@gmail.com';
+
+                var adminEmail = adminInput.includes('@') ? adminInput : 'nishantyadawad007@gmail.com';
+                var submitBtn = adminLoginForm.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Signing in...';
+
                 try {
                     var { data, error } = await supabase.auth.signInWithPassword({
                         email: adminEmail,
                         password: password,
                     });
                     if (error || !data.session) {
-                        throw error || new Error('Sign in failed');
+                        if (error && error.message === 'Invalid login credentials') {
+                            alert('Admin sign in failed: Invalid password or admin email.\n\nPlease check your password for ' + adminEmail);
+                        } else {
+                            throw error || new Error('Sign in failed');
+                        }
+                        return;
                     }
-                    alert('Admin logged in. Redirecting to leaderboard...');
+                    alert('Admin verified! Opening leaderboard...');
                     window.location.href = 'admin.html';
                 } catch (err) {
                     alert('Sign in failed: ' + (err.message || 'unknown error'));
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Sign In as Admin';
                 }
             });
 

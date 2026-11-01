@@ -8,6 +8,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-nav {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+        .admin-nav .btn {
+            padding: 8px 18px;
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
 <body>
     <div class="parchment-overlay" aria-hidden="true"></div>
@@ -20,8 +33,8 @@
 
         <form id="adminLoginForm" class="username-section" style="padding:18px 22px;">
             <div class="form-field">
-                <label for="adminName">Admin name</label>
-                <input type="text" id="adminName" placeholder="Admin name" autocomplete="off">
+                <label for="adminEmail">Admin Email</label>
+                <input type="email" id="adminEmail" placeholder="e.g. nishantyadawad007@gmail.com" autocomplete="email" value="nishantyadawad007@gmail.com">
             </div>
             <div class="form-field">
                 <label for="adminPassword">Password</label>
@@ -32,6 +45,13 @@
             </div>
         </form>
     </main>
+
+    <!-- Admin Views Navigation -->
+    <div id="adminNav" class="admin-nav" hidden>
+        <button type="button" class="btn btn-primary" id="btnShowLeaderboard">Leaderboard</button>
+        <button type="button" class="btn btn-outline" id="btnShowLogs">Activity Logs</button>
+        <button type="button" class="btn btn-outline" id="btnSignOut">Sign Out</button>
+    </div>
 
     <section class="admin-leaderboard" id="leaderboard" hidden>
         <h1>Registered players</h1>
@@ -53,7 +73,7 @@
 
         <p class="empty" id="lbEmpty">No registered players yet.</p>
 
-        <div class="action-row">
+        <div class="action-row" style="margin-top:24px;">
             <a href="case-cleared.html" class="btn btn-outline">Back to the Study</a>
         </div>
     </section>
@@ -77,7 +97,7 @@
 
         <p class="empty" id="logEmpty">No activity logs yet.</p>
 
-        <div class="action-row">
+        <div class="action-row" style="margin-top:24px;">
             <a href="case-cleared.html" class="btn btn-outline">Back to the Study</a>
         </div>
     </section>
@@ -86,7 +106,9 @@
         <p class="case-note">Sherlock Holmes Consulting — 221B Baker Street</p>
     </footer>
 
-        <script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script>
         (function () {
             'use strict';
 
@@ -99,23 +121,27 @@
             var adminEmailEl = document.getElementById('adminEmail');
             var adminPasswordEl = document.getElementById('adminPassword');
             var loginPanel = document.getElementById('loginPanel');
+            var adminNav = document.getElementById('adminNav');
             var leaderboardEl = document.getElementById('leaderboard');
             var logPanel = document.getElementById('logsPanel');
             var lbBody = document.getElementById('lbBody');
             var lbEmpty = document.getElementById('lbEmpty');
             var logBody = document.getElementById('logBody');
             var logEmpty = document.getElementById('logEmpty');
+            var status1 = document.getElementById('status');
             var status2 = document.getElementById('status2');
             var status3 = document.getElementById('status3');
             var loginForm = document.getElementById('adminLoginForm');
+            var btnShowLeaderboard = document.getElementById('btnShowLeaderboard');
+            var btnShowLogs = document.getElementById('btnShowLogs');
+            var btnSignOut = document.getElementById('btnSignOut');
 
             var ADMIN_SECRET_KEY = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6';
 
             function setStatus(el, text, className) {
-                if (el) el.textContent = text;
-                if (className) {
-                    var s = document.getElementById('status');
-                    if (s) s.className = 'status feedback ' + className;
+                if (el) {
+                    el.textContent = text;
+                    if (className) el.className = 'status feedback ' + className;
                 }
             }
 
@@ -145,8 +171,11 @@
                         '<td>' + escapeHtml(row.tier || 'Apprentice') + '</td>';
                     lbBody.appendChild(tr);
                 });
+                status2.textContent = '';
                 leaderboardEl.hidden = false;
                 logPanel.hidden = true;
+                btnShowLeaderboard.className = 'btn btn-primary';
+                btnShowLogs.className = 'btn btn-outline';
             }
 
             function renderLogs(data) {
@@ -168,8 +197,11 @@
                         '<td>' + (row.points_awarded || 0) + '</td>';
                     logBody.appendChild(tr);
                 });
+                status3.textContent = '';
                 leaderboardEl.hidden = true;
                 logPanel.hidden = false;
+                btnShowLogs.className = 'btn btn-primary';
+                btnShowLeaderboard.className = 'btn btn-outline';
             }
 
             function escapeHtml(str) {
@@ -179,60 +211,137 @@
             }
 
             async function fetchLeaderboard() {
-                var authHeader = 'Bearer ' + (await supabase.auth.getSession())
-                    .data.session.access_token;
-                var res = await fetch(SUPABASE_URL + '/functions/v1/verify-answer/leaderboard', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': authHeader,
-                        'X-Secret-Key': ADMIN_SECRET_KEY,
-                    },
-                });
-                var data = await res.json();
-                renderLeaderboard(data);
+                setStatus(status2, 'Loading leaderboard...', 'info');
+                try {
+                    var sessionRes = await supabase.auth.getSession();
+                    var session = sessionRes && sessionRes.data ? sessionRes.data.session : null;
+                    if (!session) {
+                        showLogin();
+                        return;
+                    }
+                    var authHeader = 'Bearer ' + session.access_token;
+                    var res = await fetch(SUPABASE_URL + '/functions/v1/verify-answer/leaderboard', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': authHeader,
+                            'X-Secret-Key': ADMIN_SECRET_KEY,
+                        },
+                    });
+                    var data = await res.json();
+                    if (data && data.ok) {
+                        renderLeaderboard(data);
+                        return;
+                    }
+
+                    // Fallback to direct client query
+                    var p = await supabase.from('profiles').select('id, username, display_name, total_points, tier').order('total_points', { ascending: false });
+                    if (p.data) {
+                        var list = p.data.map(function (row) {
+                            return {
+                                username: row.username || row.display_name || 'Anonymous',
+                                total_points: row.total_points || 0,
+                                tier: row.tier || 'Apprentice'
+                            };
+                        });
+                        renderLeaderboard({ ok: true, leaderboard: list });
+                    } else {
+                        renderLeaderboard(data);
+                    }
+                } catch (e) {
+                    setStatus(status2, 'Error: ' + e.message, 'error');
+                }
             }
 
             async function fetchLogs() {
-                var authHeader = 'Bearer ' + (await supabase.auth.getSession())
-                    .data.session.access_token;
-                var res = await fetch(SUPABASE_URL + '/functions/v1/verify-answer/logs', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': authHeader,
-                        'X-Secret-Key': ADMIN_SECRET_KEY,
-                    },
-                });
-                var data = await res.json();
-                renderLogs(data);
+                setStatus(status3, 'Loading logs...', 'info');
+                try {
+                    var sessionRes = await supabase.auth.getSession();
+                    var session = sessionRes && sessionRes.data ? sessionRes.data.session : null;
+                    if (!session) {
+                        showLogin();
+                        return;
+                    }
+                    var authHeader = 'Bearer ' + session.access_token;
+                    var res = await fetch(SUPABASE_URL + '/functions/v1/verify-answer/logs', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': authHeader,
+                            'X-Secret-Key': ADMIN_SECRET_KEY,
+                        },
+                    });
+                    var data = await res.json();
+                    if (data && data.ok) {
+                        renderLogs(data);
+                        return;
+                    }
+
+                    // Fallback to direct query
+                    var l = await supabase.from('activity_logs').select('id, username, game_id, action, points_awarded, created_at').order('created_at', { ascending: false }).limit(50);
+                    if (l.data) {
+                        renderLogs({ ok: true, logs: l.data });
+                    } else {
+                        renderLogs(data);
+                    }
+                } catch (e) {
+                    setStatus(status3, 'Error: ' + e.message, 'error');
+                }
             }
+
+            function showAdminView() {
+                loginPanel.style.display = 'none';
+                adminNav.hidden = false;
+                fetchLeaderboard();
+            }
+
+            function showLogin() {
+                loginPanel.style.display = 'block';
+                adminNav.hidden = true;
+                leaderboardEl.hidden = true;
+                logPanel.hidden = true;
+            }
+
+            btnShowLeaderboard.addEventListener('click', fetchLeaderboard);
+            btnShowLogs.addEventListener('click', fetchLogs);
+            btnSignOut.addEventListener('click', async function () {
+                await supabase.auth.signOut();
+                showLogin();
+            });
 
             loginForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                setStatus(status2, 'Checking login&hellip;', 'info');
-                loginForm.querySelector('.btn').disabled = true;
+                setStatus(status1, 'Checking credentials...', 'info');
+                var submitBtn = loginForm.querySelector('.btn');
+                submitBtn.disabled = true;
 
                 try {
+                    var email = adminEmailEl.value.trim();
+                    var password = adminPasswordEl.value;
                     var { data, error } = await supabase.auth.signInWithPassword({
-                        email: adminEmailEl.value.trim(),
-                        password: adminPasswordEl.value,
+                        email: email,
+                        password: password,
                     });
                     if (error || !data.session) {
                         throw error || new Error('Login failed');
                     }
-                    setStatus(status2, 'Welcome, ' + adminEmailEl.value.trim() + '.', 'success');
-                    adminEmailEl.disabled = true;
-                    adminPasswordEl.disabled = true;
-                    loginForm.style.display = 'none';
-                    await fetchLeaderboard();
+                    setStatus(status1, 'Welcome, ' + email + '.', 'success');
+                    showAdminView();
                 } catch (err) {
-                    setStatus(status2, 'Login failed: ' + (err.message || 'unknown error'), 'error');
+                    setStatus(status1, 'Login failed: ' + (err.message || 'unknown error'), 'error');
                 } finally {
-                    loginForm.querySelector('.btn').disabled = false;
+                    submitBtn.disabled = false;
                 }
             });
 
-            document.getElementById('backBtn').addEventListener('click', function () {
-                location.href = 'index.html';
-            });
+            // Auto-check on page load
+            async function init() {
+                if (!supabase) return;
+                var res = await supabase.auth.getSession();
+                if (res && res.data && res.data.session) {
+                    showAdminView();
+                }
+            }
+            init();
         })();
     </script>
+</body>
+</html>
