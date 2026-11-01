@@ -130,7 +130,8 @@
                         email: email,
                         password: playerPassword.value,
                         options: {
-                            data: { display_name: name }
+                            data: { display_name: name },
+                            email_confirm: true
                         }
                     });
                     if (error) {
