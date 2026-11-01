@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>The Study — 221B Baker Street</title>
+    <title>Sherlock Games — Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica&family=Libre+Franklin:wght@400;600;700&display=swap" rel="stylesheet">
@@ -12,185 +12,177 @@
 <body>
     <div class="parchment-overlay" aria-hidden="true"></div>
 
-    <main class="case-page">
-        <!-- ===== Case header ===== -->
-        <header class="case-header">
-            <div class="address">221B Baker Street</div>
-            <h1>The Locked Study</h1>
-            <p class="case-subtitle">A heavy oak door stands before you. The brass handle is cold. No key in sight.</p>
-        </header>
+    <main class="login-page">
+        <div class="parchment">
+            <h1>🕵️ Sherlock Games</h1>
+            <p class="subtitle">Choose your login type</p>
 
-        <!-- ===== Door scene: door graphic left, mechanism right ===== -->
-        <section class="case-card door-layout">
-            <figure class="door-figure">
-                <div class="door" id="door" aria-hidden="true">
-                    <div class="door-panel"></div>
-                    <div class="keyhole"></div>
-                    <div class="brass-plate"><span>Enter Password</span></div>
-                </div>
-                <figcaption class="door-caption">The mechanism expects <strong>exactly six letters</strong>.</figcaption>
-            </figure>
+            <!-- Player Login -->
+            <section class="login-card" id="player-section">
+                <h2>Player Login</h2>
+                <p class="card-sub">Sign up with your username to play puzzles.</p>
 
-            <div class="door-controls">
-                <label class="mech-label" for="passwordInput">The door's mechanism</label>
-                <input
-                    type="text"
-                    id="passwordInput"
-                    class="password-input"
-                    placeholder="— — — — — —"
-                    maxlength="6"
-                    autocomplete="off"
-                    spellcheck="false"
-                    aria-label="Six letter password"
-                >
+                <form id="playerLoginForm">
+                    <div class="form-field">
+                        <label for="playerName">Username</label>
+                        <input type="text" id="playerName" placeholder="e.g. john.doe" maxlength="40" autocomplete="name">
+                    </div>
+                    <div class="form-field">
+                        <label for="playerPassword">Password</label>
+                        <input type="password" id="playerPassword" placeholder="Enter password" autocomplete="current-password">
+                    </div>
+                    <div class="action-row">
+                        <button type="button" class="btn btn-outline" id="playerSignUpBtn">Create Account</button>
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </div>
+                </form>
+            </section>
 
-                <div class="action-row">
-                    <a href="wordle.html" class="btn btn-outline" id="playWordleBtn">Play Wordle</a>
-                    <button class="btn btn-primary" id="enterBtn">Turn Handle</button>
-                </div>
+            <div class="divider">OR</div>
 
+            <!-- Admin Login -->
+            <section class="login-card" id="admin-section" style="display:none;">
+                <h2>Admin Login</h2>
+                <p class="card-sub">Access player leaderboard and activity logs.</p>
 
-                <blockquote class="watson-note" id="hintText">
-                    <span class="note-from">Dr. Watson's note reads:</span>
-                    &ldquo;The answer makes no sound, Holmes. But the key? The key is a rearrangement of the very same letters.&rdquo;
-                </blockquote>
+                <form id="adminLoginForm">
+                    <div class="form-field">
+                        <label for="adminName">Admin Name</label>
+                        <input type="text" id="adminName" placeholder="e.g. nishant" autocomplete="off">
+                    </div>
+                    <div class="form-field">
+                        <label for="adminPassword">Password</label>
+                        <input type="password" id="adminPassword" placeholder="Enter password" autocomplete="current-password">
+                    </div>
+                    <div class="action-row">
+                        <button type="submit" class="btn btn-primary">Sign In</button>
+                    </div>
+                </form>
+            </section>
 
-                <p class="feedback" id="feedback" aria-live="polite"></p>
+            <div class="action-row">
+                <a href="index.html" class="btn btn-outline">← Back to the Study</a>
             </div>
-        </section>
-
-        <footer class="case-footer">
-            <p class="case-note">Case File #SH-001 · The Hushed Vault</p>
-        </footer>
+        </div>
     </main>
 
-    <script src="game.js"></script>
+    <footer class="case-footer">
+        <p class="case-note">Sherlock Holmes Consulting — 221B Baker Street</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script>
-        /* ================================================================
-           DOOR LOGIC — nothing here reads as a word.
-           The sig hashes are one-way: same input → same number, no decoding.
-           ================================================================ */
-        const SALT_WORD = 0x9e3779;
-        const SALT_SORT = 0x5c1ba7;
-        const TWIST_SIG = 0x275FFFE5; // the vault word itself — NOT the key
-        const KEY_SIG   = 0xABEDDCD5; // shared by every valid rearrangement
+        (function () {
+            'use strict';
 
-        const passwordInput = document.getElementById('passwordInput');
-        const enterBtn = document.getElementById('enterBtn');
-        const feedback = document.getElementById('feedback');
-        const door = document.getElementById('door');
-        const hintText = document.getElementById('hintText');
-        const playWordleBtn = document.getElementById('playWordleBtn');
+            var SUPABASE_URL = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : '';
+            var SUPABASE_ANON = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.anonKey : '';
+            var supabase = SUPABASE_URL && SUPABASE_ANON
+                ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+                : null;
 
-        /* Saltable 32-bit hash */
-        function fold(s, salt) {
-            let h = (2166136261 ^ salt) >>> 0;
-            for (let i = 0; i < s.length; i++) {
-                h ^= s.charCodeAt(i);
-                h = Math.imul(h, 16777619) >>> 0;
-            }
-            return h >>> 0;
-        }
+            var playerName = document.getElementById('playerName');
+            var playerPassword = document.getElementById('playerPassword');
+            var playerSignUpBtn = document.getElementById('playerSignUpBtn');
+            var playerLoginForm = document.getElementById('playerLoginForm');
+            var adminName = document.getElementById('adminName');
+            var adminPassword = document.getElementById('adminPassword');
+            var adminLoginForm = document.getElementById('adminLoginForm');
+            var playerSection = document.getElementById('player-section');
+            var adminSection = document.getElementById('admin-section');
 
-        /* Returning from the vault? The word arrives masked, not in clear text. */
-        const vaultWord = (() => {
-            const masked = sessionStorage.getItem('sh-vault-word');
-            if (!masked) return '';
-            try {
-                const word = masked.split(',').map(n => String.fromCharCode(n ^ 0x37)).join('');
-                return /^[A-Z]{6}$/.test(word) ? word : '';
-            } catch (err) { return ''; }
-        })();
-        const justSolved = new URLSearchParams(window.location.search).get('solved') === '1';
+            // Toggle between player and admin sections
+            document.querySelectorAll('.login-card').forEach(function (card) {
+                card.addEventListener('click', function (e) {
+                    if (e.target.tagName === 'H2') {
+                        var isPlayer = card.id === 'player-section';
+                        adminSection.style.display = isPlayer ? 'none' : 'block';
+                        playerSection.style.display = isPlayer ? 'block' : 'none';
+                    }
+                });
+            });
 
-        if (justSolved && vaultWord) {
-            feedback.innerHTML =
-                'Vault word found: <strong>' + vaultWord + '</strong>. ' +
-                'But a door never opens to its own echo — give the mechanism a <em>different</em> arrangement of those letters.';
-            feedback.className = 'feedback info show';
+            // Player sign up
+            playerSignUpBtn.addEventListener('click', async function () {
+                var name = playerName.value.trim();
+                if (!name) {
+                    alert('Please enter a username.');
+                    return;
+                }
+                if (!/^[a-zA-Z0-9._-]{3,40}$/.test(name)) {
+                    alert('Username must be 3-40 characters (letters, numbers, dots, hyphens, underscores).');
+                    return;
+                }
+                var email = name.replace(/\s+/g, '.') + '@player.local';
+                try {
+                    var { data, error } = await supabase.auth.signUp({
+                        email: email,
+                        password: playerPassword.value,
+                        options: {
+                            data: { display_name: name }
+                        }
+                    });
+                    if (error) {
+                        throw error;
+                    }
+                    alert('Account created! You can now sign in.');
+                    playerPassword.value = '';
+                } catch (err) {
+                    alert('Sign up failed: ' + (err.message || 'unknown error'));
+                }
+            });
 
-            hintText.innerHTML =
-                '<span class="note-from">Dr. Watson\'s note reads:</span>' +
-                '&ldquo;You hold six letters, Holmes. Any order but the obvious one. Think, man, think!&rdquo;';
-
-            playWordleBtn.textContent = 'Replay Wordle';
-        }
-
-        /* --- Input hygiene --- */
-        passwordInput.addEventListener('input', function (e) {
-            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
-            feedback.textContent = '';
-            feedback.className = 'feedback';
-        });
-
-        /* --- Enter in the field submits --- */
-        passwordInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
+            // Player login
+            playerLoginForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                tryPassword();
-            }
-        });
+                var name = playerName.value.trim();
+                var password = playerPassword.value;
+                if (!name || !password) {
+                    alert('Please enter both username and password.');
+                    return;
+                }
+                try {
+                    var { data, error } = await supabase.auth.signInWithPassword({
+                        email: name.replace(/\s+/g, '.') + '@player.local',
+                        password: password,
+                    });
+                    if (error || !data.session) {
+                        throw error || new Error('Login failed');
+                    }
+                    alert('Welcome, ' + name + '! You can now play puzzles.');
+                    playerSection.style.display = 'none';
+                    window.location.href = 'index.html';
+                } catch (err) {
+                    alert('Login failed: ' + (err.message || 'unknown error'));
+                }
+            });
 
-        enterBtn.addEventListener('click', tryPassword);
-
-        /* --- Enter still works even if the field lost focus --- */
-        document.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter') return;
-            const el = document.activeElement;
-            if (el === passwordInput || el.tagName === 'BUTTON' || el.tagName === 'A') return;
-            tryPassword();
-        });
-
-        function tryPassword() {
-            const input = passwordInput.value.trim().toUpperCase();
-
-            if (input.length !== 6) {
-                showFeedback('Six letters. No more, no less.', 'error');
-                shakeDoor();
-                return;
-            }
-
-            if (fold(input, SALT_WORD) === TWIST_SIG) {
-                /* The vault word verbatim — the twist bites. */
-                showFeedback(
-                    '<strong>&ldquo;' + input + '&rdquo;</strong> — that is the word the vault taught you, not its key. ' +
-                    'Rearrange it. <em>A different word, same letters.</em>',
-                    'error'
-                );
-                shakeDoor();
-                return;
-            }
-
-            /* Sorting makes every genuine rearrangement hash to the same signature. */
-            if (fold(input.split('').sort().join(''), SALT_SORT) === KEY_SIG) {
-                showFeedback('The lock clicks. The door swings inward&hellip;', 'success');
-                door.classList.add('unlocking');
-                setTimeout(function () {
-                    sessionStorage.setItem('sherlock-door-cleared', 'true');
-                    sessionStorage.setItem('sherlock-password-used', input);
-                    window.location.href = 'case-cleared.html';
-                }, 1500);
-                return;
-            }
-
-            showFeedback('<strong>&ldquo;' + input + '&rdquo;</strong> — the mechanism doesn\'t budge.', 'error');
-            shakeDoor();
-        }
-
-        function shakeDoor() {
-            door.classList.remove('shake');
-            void door.offsetWidth;
-            door.classList.add('shake');
-        }
-
-        function showFeedback(message, type) {
-            feedback.innerHTML = message;
-            feedback.className = 'feedback ' + type + ' show';
-        }
-
-        /* A nod for the curious who open the console. */
-        console.log('%cSherlock:%c Curious, Watson? The answer was never lying in the source — only in the clues.',
-            'color:#c49a55;font-weight:700;', 'color:#9fb0a6;font-style:italic;');
+            // Admin login
+            adminLoginForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var adminNameVal = adminName.value.trim();
+                var password = adminPassword.value;
+                if (!adminNameVal || !password) {
+                    alert('Please enter both admin name and password.');
+                    return;
+                }
+                adminEmail = 'nishantyadawad007@gmail.com';
+                try {
+                    var { data, error } = await supabase.auth.signInWithPassword({
+                        email: adminEmail,
+                        password: password,
+                    });
+                    if (error || !data.session) {
+                        throw error || new Error('Sign in failed');
+                    }
+                    alert('Admin logged in. Redirecting to leaderboard...');
+                    window.location.href = 'admin.html';
+                } catch (err) {
+                    alert('Sign in failed: ' + (err.message || 'unknown error'));
+                }
+            });
+        })();
     </script>
 </body>
 </html>
